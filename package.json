@@ -1,0 +1,30 @@
+{
+  "name": "super-bot",
+  "version": "1.0.0",
+  "description": "A simple yet extensible bot.",
+  "main": "start.js",
+  "dependencies": {
+    "config": "^3.2.2",
+    "esm": "^3.2.25",
+    "express": "^4.17.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gfaraj/super-bot.git"
+  },
+  "keywords": [
+    "bot",
+    "robot",
+    "respond"
+  ],
+  "author": "George Faraj",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gfaraj/super-bot/issues"
+  },
+  "homepage": "https://github.com/gfaraj/super-bot#readme"
+}

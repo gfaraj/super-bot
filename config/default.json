@@ -1,0 +1,9 @@
+{
+    "SuperBot" : {
+        "pluginsPath" : "../plugins"
+    },
+
+    "app" : {
+        "port" : 3000
+    }
+}
