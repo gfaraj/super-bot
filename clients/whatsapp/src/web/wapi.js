@@ -1,3 +1,4 @@
+/* This script was taken from: https://github.com/mukulhase/WebWhatsapp-Wrapper/blob/master/webwhatsapi/js/wapi.js */
 /**
  * This script contains WAPI functions that need to be run in the context of the webpage
  */
@@ -1125,8 +1126,8 @@ window.Store.Msg.off('add');
 sessionStorage.removeItem('saved_msgs');
 
 window.WAPI._newMessagesListener = window.Store.Msg.on('add', (newMessage) => {
-    if (newMessage && newMessage.isNewMsg && !newMessage.isSentByMe) {
-        let message = window.WAPI.processMessageObj(newMessage, false, false);
+    if (newMessage && newMessage.isNewMsg /*&& !newMessage.isSentByMe*/) {  //Edit by gfaraj: We want the bot respond to our messages too.
+        let message = window.WAPI.processMessageObj(newMessage, true, false);
         if (message) {
             window.WAPI._newMessagesQueue.push(message);
             window.WAPI._newMessagesBuffer.push(message);

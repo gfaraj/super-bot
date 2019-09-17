@@ -11,7 +11,9 @@ function main() {
     app.use(express.json());
 
     app.post('/message', function (req, res) {
+        console.log(`Received: ${require('util').inspect(req.body, {depth:null})}`);
         bot.receive(req.body, (message) => {
+            console.log(`Sending: ${require('util').inspect(message, {depth:null})}`);
             res.send(message);
         });
     });
