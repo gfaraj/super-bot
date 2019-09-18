@@ -87,35 +87,60 @@ export default class WhatsappClient {
         });
 
         await this.page.evaluate(() => {
+            function getBase64ImageData(blob, callback) {
+                var reader = new FileReader();
+                reader.readAsDataURL(blob); 
+                reader.onloadend = function() {
+                    callback(reader.result);
+                }
+            }
+            function processMessage(message) {
+                window.onMessageReceived({
+                    sender : {
+                        id : message.sender.id._serialized,
+                        userId : message.sender.id.user,
+                        name : message.sender.formattedName,
+                        shortName: message.sender.shortName,
+                        isMe : message.sender.isMe
+                    },
+                    chat : {
+                        id : message.chat.id._serialized,
+                        chatId : message.chat.id.user,
+                        isGroup : message.chat.isGroup
+                    },
+                    type : message.type,
+                    mimeType : message.mimeType,
+                    body : message.body,
+                    text : message.type == 'chat' ? message.body : message.caption,
+                    isGroupMsg : message.isGroupMsg,
+                    quotedMsg : {
+                        caption : message.quotedMsg && message.quotedMsg.caption,
+                        body : message.quotedMsg && message.quotedMsg.body,
+                        type : message.quotedMsg && message.quotedMsg.type,
+                        mimeType : message.quotedMsg && message.quotedMsg.mimetype
+                    }
+                });
+            }
             WAPI.waitNewMessages(false, (data) => {
                 data.forEach((message) => {
                     console.log(message);
-                    if (message.type == 'chat' || (message.type == 'image' && message.caption && message.caption.length > 0)) {
-                        window.onMessageReceived({
-                            sender : {
-                                id : message.sender.id._serialized,
-                                userId : message.sender.id.user,
-                                name : message.sender.name,
-                                shortName: message.sender.shortName,
-                                isMe : message.sender.isMe
-                            },
-                            chat : {
-                                id : message.chat.id._serialized,
-                                chatId : message.chat.id.user,
-                                isGroup : message.chat.isGroup
-                            },
-                            type : message.type,
-                            mimeType : message.mimeType,
-                            body : message.body,
-                            text : message.type == 'chat' ? message.body : message.caption,
-                            isGroupMsg : message.isGroupMsg,
-                            quotedMsg : {
-                                caption : message.quotedMsg && message.quotedMsg.caption,
-                                body : message.quotedMsg && message.quotedMsg.body,
-                                type : message.quotedMsg && message.quotedMsg.type,
-                                mimeType : message.quotedMsg && message.quotedMsg.mimetype
-                            }
-                        });
+
+                    if (message.type == 'chat') {
+                        processMessage(message);
+                    }
+                    else if (message.type == 'image' && message.caption && message.caption.length > 0) {
+                        var imageWaitInterval = setInterval(function() {                            
+                            WAPI.getMessageById(message.id, (m) => {
+                                console.log(m);
+                                if (m.mediaData.mediaStage === 'RESOLVED') {
+                                    clearInterval(imageWaitInterval);
+                                    getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
+                                        m.body = data;
+                                        processMessage(m);
+                                    });                                    
+                                }
+                            });
+                        }, 4000);
                     }
                 });
             });
@@ -138,7 +163,7 @@ export default class WhatsappClient {
 
     async sendImage(to, image, imageFileName, caption) {
         await this.page.evaluate((to, image, imageFileName, caption) => {
-            WAPI.sendImage(`data:${image.mimeType};base64,${image.data}`, to, imageFileName, caption, (result) => {
+            WAPI.sendImage(`${image.data}`, to, imageFileName, caption, (result) => {
                 console.log(`Send image to ${to} result = ${result}`);
             });
         }, to, image, imageFileName, caption);
@@ -150,11 +175,10 @@ export default class WhatsappClient {
         let first = parsedText[0].trim();
         let rest = parsedText[1];
         let attachment = null
-        let sender = { id : message.sender.id, name : message.sender.name, shortName : message.sender.shortName }
+        let sender = { id : message.sender.id, name : message.sender.name, shortName : message.sender.shortName, isMe : message.sender.isMe }
         let chat = { id : message.chat.id }
 
         if (message.type == "image") {
-            rest = join(rest, message.text, ' ');
             attachment = { data : message.body, mimeType : message.mimeType };
         }
         else if (message.quotedMsg) {
