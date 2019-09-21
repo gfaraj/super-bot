@@ -81,8 +81,35 @@ function handleRaw(bot, message) {
     });
 }
 
+function handleRecordings(bot, message) {    
+    let search = message.text.toLowerCase();
+    
+    function callback(err, docs) {
+        if (docs.length == 0) {
+            if (search.length > 0) {
+                bot.respond(`There are no recordings that match "${search}".`);
+            }
+            else {
+                bot.respond(`There are no recordings yet.`);
+            }
+        }
+        else {
+            bot.respond(docs.map(e => e.name).join(', '));
+        }        
+    }
+
+    if (search.length > 0) {
+        db.find({ chatId : message.chat.id, name : { $regex: new RegExp(search, "g") } }, { name : 1 }).sort({ name : 1 }).exec(callback);
+    }
+    else {
+        db.find({ chatId : message.chat.id }, { name : 1 }).sort({ name : 1 }).exec(callback);
+    }
+}
+
+
 export default function(bot) {
     bot.command('record', handleRecord);
     bot.command('forget', handleForget);
+    bot.command('recordings', handleRecordings);
     bot.raw(handleRaw);
 }
