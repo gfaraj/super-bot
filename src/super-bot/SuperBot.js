@@ -95,31 +95,37 @@ export default class SuperBot {
             return;
         }
 
-        if (this.commandEmitter.listenerCount(first) > 0) {            
-            let command = first;
-            message.command = command;
-            message.fullText = message.text;
-            message.text = parsedText[1];
-        
-            this.commandEmitter.emit(command, callback, message);
+        try {
+            if (this.commandEmitter.listenerCount(first) > 0) {            
+                let command = first;
+                message.command = command;
+                message.fullText = message.text;
+                message.text = parsedText[1];
+            
+                this.commandEmitter.emit(command, callback, message);
 
-            setTimeout(() => {
-                if (handler != null) {
-                    callback.error('Something went wrong.');
-                }
-            }, 10000);
-        }
-        else if (this.rawEmitter.listenerCount('message') > 0) {            
-            this.rawEmitter.emit('message', callback, message);
+                setTimeout(() => {
+                    if (handler != null) {
+                        callback.error('Something went wrong.');
+                    }
+                }, 10000);
+            }
+            else if (this.rawEmitter.listenerCount('message') > 0) {            
+                this.rawEmitter.emit('message', callback, message);
 
-            setTimeout(() => {
-                if (handler != null) {
-                    callback.error('I don\'t recognize that command.');
-                }
-            }, 10000);
+                setTimeout(() => {
+                    if (handler != null) {
+                        callback.error('I don\'t recognize that command.');
+                    }
+                }, 10000);
+            }
+            else {
+                callback.error('I don\'t recognize that command.');
+            }
         }
-        else {
-            callback.error('I don\'t recognize that command.');
+        catch (err) {
+            console.log(err);
+            callback.error('Something went wrong.');
         }
     }
 }
