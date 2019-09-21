@@ -56,15 +56,16 @@ export default class WhatsappClient {
     async getWhatsappPage() {
         let pages = await this.browser.pages();
         for (let i = 0; i < pages.length; ++i) {
-            pages[i].close();
+            await pages[i].close();
         }
 
-        let page = await this.browser.newPage();
+        let page = await this.browser.newPage();        
         page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36');
+        await page.setBypassCSP(true);
         await page.goto(WHATSAPP_WEB_URL, {
-            waitUntil: 'networkidle0',
+            waitUntil: 'load',
             timeout: 0
-        });
+        });        
         return page;
     }
 
@@ -80,7 +81,11 @@ export default class WhatsappClient {
         this.page = await this.getWhatsappPage();
                     
         var filepath = path.join(__dirname, 'web/wapi.js');
-        await this.page.addScriptTag({ path: require.resolve(filepath) });
+        await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
+        //await this.page.evaluate(require('fs').readFileSync(filepath, 'utf8'));
+
+        //const timeout = ms => new Promise(res => setTimeout(res, ms));
+        //await timeout(2000);
 
         await this.page.exposeFunction('onMessageReceived', (message) => {
             this.onMessageReceived(message);
@@ -114,10 +119,14 @@ export default class WhatsappClient {
                     text : message.type == 'chat' ? message.body : message.caption,
                     isGroupMsg : message.isGroupMsg,
                     quotedMsg : {
-                        caption : message.quotedMsg && message.quotedMsg.caption,
-                        body : message.quotedMsg && message.quotedMsg.body,
-                        type : message.quotedMsg && message.quotedMsg.type,
-                        mimeType : message.quotedMsg && message.quotedMsg.mimetype
+                        caption : message.quotedMsgObj && message.quotedMsgObj.caption,
+                        body : message.quotedMsgObj && message.quotedMsgObj.body,
+                        type : message.quotedMsgObj && message.quotedMsgObj.type,
+                        mimeType : message.quotedMsgObj && message.quotedMsgObj.mimetype,
+                        mediaKey : message.quotedMsgObj && message.quotedMsgObj.mediaKey,
+                        url : message.quotedMsgObj && message.quotedMsgObj.clientUrl,
+                        filehash : message.quotedMsgObj && message.quotedMsgObj.filehash,
+                        uploadhash : message.quotedMsgObj && message.quotedMsgObj.uploadhash
                     }
                 });
             }
@@ -126,13 +135,40 @@ export default class WhatsappClient {
                     console.log(message);
 
                     if (message.type == 'chat') {
-                        processMessage(message);
+                        if (message.quotedMsgObj && (message.quotedMsgObj.type == "sticker" || message.quotedMsgObj.type == "image")) {
+                            let imageWaitInterval = setInterval(function() {                            
+                                WAPI.getMessageById(message.quotedMsgObj.id, (m) => {
+                                    console.log(m);
+                                    if (!m) {
+                                        let chat = Store.Chat.get(message.chatId);
+                                        Store.UiController.openChatBottom(chat);
+                                        chat.loadEarlierMsgs();
+                                    }
+                                    else if (m.mediaData.mediaStage === 'RESOLVED') {
+                                        clearInterval(imageWaitInterval);
+                                        getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
+                                            WAPI.getMessageById(message.id, (m2) => {
+                                                m2.quotedMsgObj.body = data;
+                                                processMessage(m2);
+                                            });
+                                        });
+                                    }
+                                });
+                            }, 3000);
+                        }
+                        else {
+                            processMessage(message);
+                        }
                     }
                     else if (message.type == 'image' && message.caption && message.caption.length > 0) {
-                        var imageWaitInterval = setInterval(function() {                            
+                        Store.UiController.openChatBottom(Store.Chat.get(message.chat.id._serialized));
+                        let imageWaitInterval = setInterval(function() {
                             WAPI.getMessageById(message.id, (m) => {
                                 console.log(m);
-                                if (m.mediaData.mediaStage === 'RESOLVED') {
+                                if (!m) {
+                                    clearInterval(imageWaitInterval);
+                                }
+                                else if (m.mediaData.mediaStage === 'RESOLVED') {
                                     clearInterval(imageWaitInterval);
                                     getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
                                         m.body = data;
@@ -140,7 +176,7 @@ export default class WhatsappClient {
                                     });                                    
                                 }
                             });
-                        }, 4000);
+                        }, 3000);
                     }
                 });
             });
@@ -161,12 +197,31 @@ export default class WhatsappClient {
         }, to, message);
     }
 
-    async sendImage(to, image, imageFileName, caption) {
-        await this.page.evaluate((to, image, imageFileName, caption) => {
-            WAPI.sendImage(`${image.data}`, to, imageFileName, caption, (result) => {
-                console.log(`Send image to ${to} result = ${result}`);
-            });
-        }, to, image, imageFileName, caption);
+    getImageFileExtension(image) {
+        if (image.type == "sticker" || image.mimeType == 'image/webp') {
+            return 'webp';
+        }
+        else {
+            return 'jpg';
+        }
+    }
+
+    async sendImage(to, image, caption) {
+        if (image.type == "sticker" || image.mimeType == 'image/webp') {
+            await this.page.evaluate((to, image) => {
+                WAPI.sendSticker({ sticker: image, chatid: to }, (result) => {
+                    console.log(`Send sticker to ${to} result = ${result}`);
+                });
+            }, to, image);
+        }
+        else {
+            let imageFileName = `test.${this.getImageFileExtension(image)}`;
+            await this.page.evaluate((to, image, imageFileName, caption) => {
+                WAPI.sendImage(`${image.data}`, to, imageFileName, caption, (result) => {
+                    console.log(`Send image to ${to} result = ${result}`);
+                });
+            }, to, image, imageFileName, caption);
+        }
     }
 
     createBotMessage(message) {
@@ -179,7 +234,7 @@ export default class WhatsappClient {
         let chat = { id : message.chat.id }
 
         if (message.type == "image") {
-            attachment = { data : message.body, mimeType : message.mimeType };
+            attachment = { data : message.body, mimeType : message.mimeType, type : message.type };
         }
         else if (message.quotedMsg) {
             if (message.quotedMsg.type == "chat") {
@@ -190,7 +245,13 @@ export default class WhatsappClient {
             }
 
             if (message.quotedMsg.type == "image" || message.quotedMsg.type == "sticker") {
-                attachment = { data : message.quotedMsg.body, mimeType : message.quotedMsg.mimeType };
+                attachment = { data : message.quotedMsg.body, mimeType : message.quotedMsg.mimeType, type : message.quotedMsg.type };
+                if (message.quotedMsg.type == "sticker") {
+                    attachment.url = message.quotedMsg.url;
+                    attachment.mediaKey = message.quotedMsg.mediaKey;
+                    attachment.filehash = message.quotedMsg.filehash;
+                    attachment.uploadhash = message.quotedMsg.uploadhash;
+                }
             }
         }
 
@@ -222,7 +283,9 @@ export default class WhatsappClient {
                         text = "Error: " + data.message;
                     }
                     if (data.attachment) {
-                        await this.sendImage(message.chat.id, data.attachment, 'test.jpg', text);
+                        await this.sendImage(message.chat.id, 
+                            data.attachment,
+                            text);
                     }
                     else {
                         await this.sendMessage(message.chat.id, text);

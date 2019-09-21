@@ -27,7 +27,11 @@ if (!window.Store) {
                 { id: "UserConstructor", conditions: (module) => (module.default && module.default.prototype && module.default.prototype.isServer && module.default.prototype.isUser) ? module.default : null },
                 { id: "SendTextMsgToChat", conditions: (module) => (module.sendTextMsgToChat) ? module.sendTextMsgToChat : null },
                 { id: "SendSeen", conditions: (module) => (module.sendSeen) ? module.sendSeen : null },
-                { id: "sendDelete", conditions: (module) => (module.sendDelete) ? module.sendDelete : null }
+                { id: "sendDelete", conditions: (module) => (module.sendDelete) ? module.sendDelete : null },
+                { id: "UiController", conditions: (module) => (module.default && module.default.focusNextChat) ? module.default : null },
+                { id: "RawMedia", conditions: (module) => (module.prepRawMedia) ? module : null },
+                { id: "DataFactory", conditions: (module) => (module.default && module.default.createFromData) ? module.default : null },
+                { id: "Sticker", conditions: (module) => (module.default && module.default.Sticker) ? module.default : null },
             ];
             for (let idx in modules) {
                 if ((typeof modules[idx] === "object") && (modules[idx] !== null)) {
@@ -145,7 +149,7 @@ window.WAPI._serializeMessageObj = (obj) => {
         type          : obj.type,
         chat          : WAPI._serializeChatObj(obj['chat']),
         chatId        : obj.id.remote,
-        quotedMsgObj  : WAPI._serializeMessageObj(obj['_quotedMsgObj']),
+        quotedMsgObj  : WAPI._serializeMessageObj(obj.quotedMsgObj()),
         mediaData     : window.WAPI._serializeRawObj(obj['mediaData'])
     });
 };
@@ -1209,18 +1213,71 @@ window.WAPI.getBufferedNewMessages = function (done) {
 /** End new messages observable functions **/
 
 window.WAPI.sendImage = function (imgBase64, chatid, filename, caption, done) {
-//var idUser = new window.Store.UserConstructor(chatid);
-var idUser = new window.Store.UserConstructor(chatid, { intentionallyUsePrivateConstructor: true });
-// create new chat
-return Store.Chat.find(idUser).then((chat) => {
-    var mediaBlob = window.WAPI.base64ImageToFile(imgBase64, filename);
-    var mc = new Store.MediaCollection();
-    mc.processFiles([mediaBlob], chat, 1).then(() => {
-        var media = mc.models[0];
-        media.sendToChat(chat, { caption: caption });
+    //var idUser = new window.Store.UserConstructor(chatid);
+    var idUser = new window.Store.UserConstructor(chatid, { intentionallyUsePrivateConstructor: true });
+    // create new chat
+    return Store.Chat.find(idUser).then((chat) => {
+        var mediaBlob = window.WAPI.base64ImageToFile(imgBase64, filename);
+        var mc = new Store.MediaCollection();
+        mc.processFiles([mediaBlob], chat, 1).then(() => {
+            var media = mc.models[0];
+            media.sendToChat(chat, { caption: caption });
+            if (done !== undefined) done(true);
+        });
+    });
+}
+
+window.WAPI.sendImage2 = function ({imgBase64, chatid, filename, caption, quotedMsgId}, done) {
+    var idUser = new window.Store.UserConstructor(chatid, { intentionallyUsePrivateConstructor: true });
+    return Store.Chat.find(idUser).then((chat) => {
+        var mediaBlob = window.WAPI.base64ImageToFile(imgBase64, filename);
+        var mc = new Store.MediaCollection();
+        mc.processFiles([mediaBlob], chat, 1).then(() => {
+            var media = mc.models[0];
+            var extraData = {};
+            if (caption) {
+                extraData.caption = caption;
+            }
+            if (quotedMsgId) {
+                extraData.quotedMsg = window.Store.Msg.get(quotedMsgId);
+            }
+            media.sendToChat(chat, extraData);
+            if (done !== undefined) done(true);
+        });
+    });
+}
+
+window.WAPI.sendSticker = function ({sticker, chatid, quotedMsgId}, done) {
+    var idUser = new window.Store.UserConstructor(chatid, { intentionallyUsePrivateConstructor: true });
+    // create new chat
+    return Store.Chat.find(idUser).then(async (chat) => {
+        //var mediaBlob = window.WAPI.base64ImageToFile(sticker.data, 'file.webp');
+        let prIdx = Store.StickerPack.pageWithIndex(0);
+        await Store.StickerPack.fetchAt(0);        
+        if (Store.StickerPack._models.length == 0) {
+            console.log('Could not fetch any sticker packs.');
+            if (done !== undefined) done(false);
+            return;
+        }
+        await Store.StickerPack._pageFetchPromises[prIdx];
+        await Store.StickerPack._models[0].stickers.fetch();
+        if (Store.StickerPack._models[0].stickers._models.length == 0) {
+            console.log('Could not fetch any stickers in the first pack.');
+            if (done !== undefined) done(false);
+            return;
+        }
+        let stick = Store.StickerPack._models[0].stickers._models[0];
+        stick.__x_clientUrl = sticker.url;
+        stick.__x_filehash = sticker.filehash;
+        stick.__x_uploadhash = sticker.uploadhash;
+        stick.__x_mediaKey = sticker.mediaKey;
+        //stick.__x__mediaObject.filehash = sticker.filehash;
+        //stick.__x__mediaObject.mediaBlob._blob = mediaBlob;
+        //stick.__x__mediaObject.size = mediaBlob.size;
+        await stick.initialize();
+        stick.sendToChat(chat);
         if (done !== undefined) done(true);
     });
-});
 }
 
 window.WAPI.base64ImageToFile = function (b64Data, filename) {
