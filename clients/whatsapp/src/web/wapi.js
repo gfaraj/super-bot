@@ -1252,6 +1252,8 @@ window.WAPI.sendSticker = function ({sticker, chatid, quotedMsgId}, done) {
     // create new chat
     return Store.Chat.find(idUser).then(async (chat) => {
         //var mediaBlob = window.WAPI.base64ImageToFile(sticker.data, 'file.webp');
+        // Since Whatsapp Web doesn't really support sending custom stickers, we have to trick it by using one 
+        // of the built-in sticker objects and changing some of the properties before we send it.
         let prIdx = Store.StickerPack.pageWithIndex(0);
         await Store.StickerPack.fetchAt(0);        
         if (Store.StickerPack._models.length == 0) {

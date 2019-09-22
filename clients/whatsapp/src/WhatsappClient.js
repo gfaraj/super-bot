@@ -1,7 +1,8 @@
 const path = require('path');
 const puppeteer = require('puppeteer');
 const axios = require('axios');
-
+const mime = require('mime');
+const fs = require('fs');
 
 const WHATSAPP_WEB_URL = 'https://web.whatsapp.com/';
 const DEFAULT_CHROMIUM_ARGS = [
@@ -29,6 +30,8 @@ const DEFAULT_CHROMIUM_ARGS = [
     "--disable-accelerated-video-decode",
     "--num-raster-threads=1",
 ];
+
+const timeout = ms => new Promise(res => setTimeout(res, ms));
 
 function parse(str) {
     let pos = str.indexOf(' ');
@@ -62,8 +65,12 @@ export default class WhatsappClient {
         let page = await this.browser.newPage();        
         page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36');
         await page.setBypassCSP(true);
+        await page.setViewport({
+            width: 800,
+            height: 900
+        })
         await page.goto(WHATSAPP_WEB_URL, {
-            waitUntil: 'load',
+            waitUntil: 'networkidle0',
             timeout: 0
         });        
         return page;
@@ -75,111 +82,50 @@ export default class WhatsappClient {
             userDataDir: "./user_data",
             args: DEFAULT_CHROMIUM_ARGS,
             ignoreHTTPSErrors: true,
-            devtools: false
+            devtools: false,
+            defaultViewport: null
         });
         
         this.page = await this.getWhatsappPage();
                     
         var filepath = path.join(__dirname, 'web/wapi.js');
         await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
-        //await this.page.evaluate(require('fs').readFileSync(filepath, 'utf8'));
-
-        //const timeout = ms => new Promise(res => setTimeout(res, ms));
-        //await timeout(2000);
 
         await this.page.exposeFunction('onMessageReceived', (message) => {
             this.onMessageReceived(message);
         });
 
-        await this.page.evaluate(() => {
-            function getBase64ImageData(blob, callback) {
-                var reader = new FileReader();
-                reader.readAsDataURL(blob); 
-                reader.onloadend = function() {
-                    callback(reader.result);
-                }
-            }
-            function processMessage(message) {
-                window.onMessageReceived({
-                    sender : {
-                        id : message.sender.id._serialized,
-                        userId : message.sender.id.user,
-                        name : message.sender.formattedName,
-                        shortName: message.sender.shortName,
-                        isMe : message.sender.isMe
-                    },
-                    chat : {
-                        id : message.chat.id._serialized,
-                        chatId : message.chat.id.user,
-                        isGroup : message.chat.isGroup
-                    },
-                    type : message.type,
-                    mimeType : message.mimeType,
-                    body : message.body,
-                    text : message.type == 'chat' ? message.body : message.caption,
-                    isGroupMsg : message.isGroupMsg,
-                    quotedMsg : {
-                        caption : message.quotedMsgObj && message.quotedMsgObj.caption,
-                        body : message.quotedMsgObj && message.quotedMsgObj.body,
-                        type : message.quotedMsgObj && message.quotedMsgObj.type,
-                        mimeType : message.quotedMsgObj && message.quotedMsgObj.mimetype,
-                        mediaKey : message.quotedMsgObj && message.quotedMsgObj.mediaKey,
-                        url : message.quotedMsgObj && message.quotedMsgObj.clientUrl,
-                        filehash : message.quotedMsgObj && message.quotedMsgObj.filehash,
-                        uploadhash : message.quotedMsgObj && message.quotedMsgObj.uploadhash
-                    }
-                });
-            }
-            WAPI.waitNewMessages(false, (data) => {
-                data.forEach((message) => {
-                    console.log(message);
+        var filepath = path.join(__dirname, 'web/superbot.js');
+        await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
+    }
 
-                    if (message.type == 'chat') {
-                        if (message.quotedMsgObj && (message.quotedMsgObj.type == "sticker" || message.quotedMsgObj.type == "image")) {
-                            let imageWaitInterval = setInterval(function() {                            
-                                WAPI.getMessageById(message.quotedMsgObj.id, (m) => {
-                                    console.log(m);
-                                    if (!m) {
-                                        let chat = Store.Chat.get(message.chatId);
-                                        Store.UiController.openChatBottom(chat);
-                                        chat.loadEarlierMsgs();
-                                    }
-                                    else if (m.mediaData.mediaStage === 'RESOLVED') {
-                                        clearInterval(imageWaitInterval);
-                                        getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
-                                            WAPI.getMessageById(message.id, (m2) => {
-                                                m2.quotedMsgObj.body = data;
-                                                processMessage(m2);
-                                            });
-                                        });
-                                    }
-                                });
-                            }, 3000);
-                        }
-                        else {
-                            processMessage(message);
-                        }
-                    }
-                    else if (message.type == 'image' && message.caption && message.caption.length > 0) {
-                        Store.UiController.openChatBottom(Store.Chat.get(message.chat.id._serialized));
-                        let imageWaitInterval = setInterval(function() {
-                            WAPI.getMessageById(message.id, (m) => {
-                                console.log(m);
-                                if (!m) {
-                                    clearInterval(imageWaitInterval);
-                                }
-                                else if (m.mediaData.mediaStage === 'RESOLVED') {
-                                    clearInterval(imageWaitInterval);
-                                    getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
-                                        m.body = data;
-                                        processMessage(m);
-                                    });                                    
-                                }
-                            });
-                        }, 3000);
-                    }
-                });
-            });
+    async screenshotDOMElement(opts = {}) {
+        const padding = 'padding' in opts ? opts.padding : 0;
+        const path = 'path' in opts ? opts.path : null;
+        const selector = opts.selector;
+
+        if (!selector)
+            throw Error('Please provide a selector.');
+
+        const rect = await this.page.evaluate(selector => {
+            const element = document.querySelector(selector);
+            if (!element)
+                return null;
+            const {x, y, width, height} = element.getBoundingClientRect();
+            return {left: x, top: y, width, height, id: element.id};
+        }, selector);
+
+        if (!rect)
+            throw Error(`Could not find element that matches selector: ${selector}.`);
+
+        return await this.page.screenshot({
+            path,
+            clip: {
+                x: rect.left - padding,
+                y: rect.top - padding,
+                width: rect.width + padding * 2,
+                height: rect.height + padding * 2
+            }
         });
     }
 
@@ -206,6 +152,32 @@ export default class WhatsappClient {
         }
     }
 
+    getFileInBase64 = function (filename) {
+        return new Promise((resolve, reject) => {
+            try {
+                filename = path.join(process.cwd(), filename);
+                const fileMime = mime.getType(filename);
+                var file = fs.readFileSync(filename, { encoding: 'base64' });
+                resolve(`data:${fileMime};base64,${file}`);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    async sendScreenshot(to, caption) {
+        await this.screenshotDOMElement({
+            path: 'screenshot.png',
+            selector: '#main',
+            padding: 0
+        });
+        await this.sendImage(to, {
+            data: await this.getFileInBase64('screenshot.png'),
+            type: 'image',
+            mimeType: 'image/png'
+        }, caption);
+    }
+
     async sendImage(to, image, caption) {
         if (image.type == "sticker" || image.mimeType == 'image/webp') {
             await this.page.evaluate((to, image) => {
@@ -224,7 +196,7 @@ export default class WhatsappClient {
         }
     }
 
-    createBotMessage(message) {
+    async createBotMessage(message) {
         let parsedText = parse(message.text);
         
         let first = parsedText[0].trim();
@@ -232,6 +204,24 @@ export default class WhatsappClient {
         let attachment = null
         let sender = { id : message.sender.id, name : message.sender.name, shortName : message.sender.shortName, isMe : message.sender.isMe }
         let chat = { id : message.chat.id }
+
+        if (first == "!moment" || first == "!screenshot") {
+            if (first === "!moment" && rest.length == 0) {
+                this.sendMessage(message.chat.id, 'Specify a name for the recording.');
+                return;
+            }
+            await this.page.evaluate(async (chatId) => {
+                let chat = Store.Chat.get(chatId);
+                await Store.UiController.openChatBottom(chat);
+            }, message.chat.id);
+            await timeout(2000);
+            await this.sendScreenshot(message.chat.id, first === "!moment" ? `!record ${rest}` : undefined);
+            if (message.text == "!moment") {
+                await timeout(2000);
+                await this.sendMessage(message.chat.id, 'Moment recorded!');
+            }
+            return;
+        }
 
         if (message.type == "image") {
             attachment = { data : message.body, mimeType : message.mimeType, type : message.type };
@@ -270,7 +260,7 @@ export default class WhatsappClient {
     async onMessageReceived(message) {
         console.log(`Message from ${message.sender.name}: ${message.text}`);
         
-        let botMessage = this.createBotMessage(message);
+        let botMessage = await this.createBotMessage(message);
         if (botMessage) {
             console.log(`Sending to bot: ${require('util').inspect(botMessage, {depth:null})}`);
             axios.post(this.options.message_api_url, botMessage)
