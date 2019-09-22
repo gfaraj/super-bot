@@ -115,12 +115,12 @@ export default class SuperBot {
 
                 setTimeout(() => {
                     if (handler != null) {
-                        callback.error('I don\'t recognize that command.');
+                        callback.error(`I don't recognize "${message.text}".`);
                     }
-                }, 10000);
+                }, 5000);
             }
             else {
-                callback.error('I don\'t recognize that command.');
+                callback.error(`I don't recognize "${first}".`);
             }
         }
         catch (err) {
