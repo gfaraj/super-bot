@@ -5,21 +5,21 @@ function parse(str) {
     return (pos === -1) ? [str, ''] : [str.substr(0, pos), str.substr(pos + 1)];
 };
 
-function loadPlugins(bot, path) {
+async function loadPlugins(bot, path) {
     console.log(`Loading plugins from path: ${path}`);
-    require('fs').readdirSync(path).forEach(function (file) {
+    for (const file of require('fs').readdirSync(path)) {
         console.log(`Loading plugin: ${file}...`);
-
-        import(require('path').join(path, file))
-        .then(t => {
+        try {
+            var t = await import(require('path').join(path, file));
+            
             console.log(`Initializing plugin: ${file}...`);
             t.default(bot);
             console.log(`Done plugin: ${file}...`);
-        })
-        .catch(err => {
+        }
+        catch(err) {
             console.error(err);
-        });
-    });
+        }
+    }
 }
 
 String.prototype.format = String.prototype.format ||
@@ -46,9 +46,19 @@ export default class SuperBot {
     rawEmitter = new events.EventEmitter();
 
     constructor(options) {
-        this.options = options;
-        if (options.pluginsPath) {
-            loadPlugins(this, require('path').join(__dirname, options.pluginsPath));
+        this.options = options;        
+    }
+
+    async start() {
+        if (this._started) return;
+        this._started = true;
+
+        this.command('all', (bot, message) => {
+            bot.respond(this.commandEmitter.eventNames().join(', '));
+        })
+
+        if (this.options.pluginsPath) {
+            await loadPlugins(this, require('path').join(__dirname, this.options.pluginsPath));
         }
     }
 

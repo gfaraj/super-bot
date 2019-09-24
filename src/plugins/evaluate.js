@@ -21,7 +21,12 @@ function calculate(bot, message) {
         return;
     }
     try {
-        bot.respond(`${safeEval('1 * (' + message.text + ')')}`);
+        let expression = message.text;
+        Object.getOwnPropertyNames(Math).forEach(key => {
+            expression = expression.replace(key, `Math.${key}`);
+        });
+
+        bot.respond(`${safeEval('1 * (' + expression + ')')}`);
     }
     catch (err) {
         console.log(err);

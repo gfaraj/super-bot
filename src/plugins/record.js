@@ -21,7 +21,7 @@ function handleRecord(bot, message) {
     if (rest.length == 0 && !message.attachment) {
         bot.error('Usage: !record <name> <value>');
         return;
-    }    
+    }
     let doc = {
         name : name.toLowerCase(),
         chatId : message.chat.id,

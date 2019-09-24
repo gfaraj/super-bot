@@ -1,11 +1,13 @@
 import express from 'express'
 import { SuperBot } from './super-bot'
 
-function main() {
+async function main() {
     console.log('Starting SuperBot...');
 
     const config = require('config');
     const bot = new SuperBot(config.get("SuperBot"));
+
+    await bot.start();
     
     const app = express();
     app.use(express.json({ limit: '20mb' }));
