@@ -32,6 +32,7 @@ if (!window.Store) {
                 { id: "RawMedia", conditions: (module) => (module.prepRawMedia) ? module : null },
                 { id: "DataFactory", conditions: (module) => (module.default && module.default.createFromData) ? module.default : null },
                 { id: "Sticker", conditions: (module) => (module.default && module.default.Sticker) ? module.default : null },
+                { id: "MediaUpload", conditions: (module) => (module.default && module.default.mediaUpload) ? module.default : null },
             ];
             for (let idx in modules) {
                 if ((typeof modules[idx] === "object") && (modules[idx] !== null)) {
@@ -1271,13 +1272,21 @@ window.WAPI.sendSticker = function ({sticker, chatid, quotedMsgId}, done) {
         let stick = Store.StickerPack._models[0].stickers._models[0];
         stick.__x_clientUrl = sticker.url;
         stick.__x_filehash = sticker.filehash;
+        stick.__x_id = sticker.filehash;
         stick.__x_uploadhash = sticker.uploadhash;
         stick.__x_mediaKey = sticker.mediaKey;
+        stick.__x_initialized = false;
+        stick.__x_mediaData.mediaStage = "INIT";
         //stick.__x__mediaObject.filehash = sticker.filehash;
+        //stick.__x__mediaObject.mediaBlob._url = sticker.url;
         //stick.__x__mediaObject.mediaBlob._blob = mediaBlob;
         //stick.__x__mediaObject.size = mediaBlob.size;
+        //stick.__x__mediaObject.mustDownloadMedia = false;
+        //stick.__x__mediaObject.downloadStage = "INIT";
+        stick.__x__mediaObject = undefined;
+        //await stick.downloadMedia();
         await stick.initialize();
-        stick.sendToChat(chat);
+        await stick.sendToChat(chat);
         if (done !== undefined) done(true);
     });
 }

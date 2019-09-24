@@ -37,12 +37,19 @@ function processMessage(message) {
     });
 }
 WAPI.waitNewMessages(false, (data) => {
+    if (!data || !(data instanceof Array)) return;
+
     data.forEach((message) => {
         console.log(message);
 
         if (message.type === 'chat') {
             if (message.quotedMsgObj && (message.quotedMsgObj.type === "sticker" || message.quotedMsgObj.type === "image")) {
-                let imageWaitInterval = setInterval(function() {                            
+                let maxWaitCount = 8;
+                let imageWaitInterval = setInterval(function() {
+                    if (maxWaitCount <= 0) {
+                        clearInterval(imageWaitInterval);
+                        return;
+                    }
                     WAPI.getMessageById(message.quotedMsgObj.id, async (m) => {
                         console.log(m);
                         if (m && m.mediaData.mediaStage === 'RESOLVED') {
@@ -71,7 +78,12 @@ WAPI.waitNewMessages(false, (data) => {
         }
         else if (message.type === 'image' && message.caption && message.caption.length > 0) {
             Store.UiController.openChatBottom(Store.Chat.get(message.chat.id._serialized));
+            let maxWaitCount = 8;
             let imageWaitInterval = setInterval(function() {
+                if (maxWaitCount <= 0) {
+                    clearInterval(imageWaitInterval);
+                    return;
+                }
                 WAPI.getMessageById(message.id, (m) => {
                     console.log(m);
                     if (!m) {
