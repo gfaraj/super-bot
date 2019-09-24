@@ -87,11 +87,13 @@ This plugin will evaluate an expression and respond with the result. It exposes 
 ```
 eval 'Hello' + ' world!'
 calc 10 + 20 / 2
+calc 15 - sqrt(4)
 ```
 Responds with:
 ```
 Hello world!
 20
+13
 ```
 
 ## Whatsapp Client
