@@ -1,3 +1,4 @@
+import Middleware from './Middleware'
 var events = require('events');
 
 function parse(str) {
@@ -44,6 +45,7 @@ function () {
 export default class SuperBot {
     commandEmitter = new events.EventEmitter();
     rawEmitter = new events.EventEmitter();
+    middleware = new Middleware();
 
     constructor(options) {
         this.options = options;        
@@ -62,6 +64,11 @@ export default class SuperBot {
         }
     }
 
+    use(fn) {
+        this.middleware.use(fn);
+        return this;
+    }
+
     command(command, handler) {
         command = command.toLowerCase();
         if (this.commandEmitter.listenerCount(command) > 0) {
@@ -75,67 +82,76 @@ export default class SuperBot {
     }
 
     receive(message, handler) {
-        if (handler == null) {            
+        if (handler == null) {
             return;
         }
+
+        let bot = this;
 
         let callback = {
-            error : function(error) {
+            error: function(error) {
                 if (handler != null) {
-                    handler({ message: error, error: true });
+                    handler({ text: error, error: true });
                     handler = null;
                 }
-            },        
-            respond : function (message) {
-                if (typeof message == 'string') {
-                    message = { text: message };
+            },
+            respond: function (m) {
+                if (typeof m == 'string') {
+                    m = { text: m };
                 }
+                m.addressee = message.addressee;
                 if (handler != null) {
-                    handler(message);
+                    handler(m);
                     handler = null;
                 }
+            },
+            pass: function (m) {
+                bot.receive(m, handler);
+                handler = null;
             }
         }
 
-        let parsedText = parse(message.text);
+        this.middleware.go(callback, message, (b, message) => {
+            let parsedText = parse(message.text);
         
-        let first = parsedText[0].toLowerCase();
-        if (first.length === 0) {
-            callback.error('I don\'t understand that.');
-            return;
-        }
-
-        try {
-            if (this.commandEmitter.listenerCount(first) > 0) {            
-                let command = first;
-                message.command = command;
-                message.fullText = message.text;
-                message.text = parsedText[1];
-            
-                this.commandEmitter.emit(command, callback, message);
-
-                setTimeout(() => {
-                    if (handler != null) {
-                        callback.error('Something went wrong.');
-                    }
-                }, 10000);
+            let first = parsedText[0].toLowerCase();
+            if (first.length === 0) {
+                callback.error('I don\'t understand that.');
+                return;
             }
-            else if (this.rawEmitter.listenerCount('message') > 0) {            
-                this.rawEmitter.emit('message', callback, message);
 
-                setTimeout(() => {
-                    if (handler != null) {
-                        callback.error(`I don't recognize "${message.text}".`);
-                    }
-                }, 5000);
+            try {
+                if (this.commandEmitter.listenerCount(first) > 0) {
+                    let command = first;
+                    message.command = command;
+                    message.fullText = message.text;
+                    message.text = parsedText[1];
+                
+                    this.commandEmitter.emit(command, callback, message);
+
+                    setTimeout(() => {
+                        if (handler != null) {
+                            callback.error('Something went wrong.');
+                        }
+                    }, 10000);
+                }
+                else if (this.rawEmitter.listenerCount('message') > 0) {            
+                    this.rawEmitter.emit('message', callback, message);
+
+                    setTimeout(() => {
+                        if (handler != null) {
+                            callback.error(`I don't recognize "${message.text}".`);
+                        }
+                    }, 5000);
+                }
+                else {
+                    callback.error(`I don't recognize "${first}".`);
+                }
             }
-            else {
-                callback.error(`I don't recognize "${first}".`);
+            catch (err) {
+                console.log(err);
+                callback.error('Something went wrong.');
             }
-        }
-        catch (err) {
-            console.log(err);
-            callback.error('Something went wrong.');
-        }
+        });
     }
 }

@@ -7,28 +7,28 @@ const fs = require('fs');
 const WHATSAPP_WEB_URL = 'https://web.whatsapp.com/';
 const DEFAULT_CHROMIUM_ARGS = [
     `--app=${WHATSAPP_WEB_URL}`,
-    "--disable-gpu",
+    //"--disable-gpu",
     "--renderer",
     "--no-sandbox",
     "--no-service-autorun",
     "--no-experiments",
     "--no-default-browser-check",
-    "--disable-webgl",
-    "--disable-threaded-animation",
-    "--disable-threaded-scrolling",
-    "--disable-in-process-stack-traces",
-    "--disable-histogram-customizer",
-    "--disable-gl-extensions",
+    //"--disable-webgl",
+    //"--disable-threaded-animation",
+    //"--disable-threaded-scrolling",
+    //"--disable-in-process-stack-traces",
+    //"--disable-histogram-customizer",
+    //"--disable-gl-extensions",
     "--disable-extensions",
-    "--disable-composited-antialiasing",
-    "--disable-canvas-aa",
-    "--disable-3d-apis",
-    "--disable-accelerated-2d-canvas",
-    "--disable-accelerated-jpeg-decoding",
-    "--disable-accelerated-mjpeg-decode",
-    "--disable-app-list-dismiss-on-blur",
-    "--disable-accelerated-video-decode",
-    "--num-raster-threads=1",
+    //"--disable-composited-antialiasing",
+    //"--disable-canvas-aa",
+    //"--disable-3d-apis",
+    //"--disable-accelerated-2d-canvas",
+    //"--disable-accelerated-jpeg-decoding",
+    //"--disable-accelerated-mjpeg-decode",
+    //"--disable-app-list-dismiss-on-blur",
+    //"--disable-accelerated-video-decode",
+    //"--num-raster-threads=1",
 ];
 
 const timeout = ms => new Promise(res => setTimeout(res, ms));
@@ -180,11 +180,19 @@ export default class WhatsappClient {
 
     async sendImage(to, image, caption) {
         if (image.type == "sticker" || image.mimeType == 'image/webp') {
-            await this.page.evaluate((to, image) => {
-                WAPI.sendSticker({ sticker: image, chatid: to }, (result) => {
+            await this.page.evaluate((to, image, caption) => {
+                WAPI.sendSticker({ sticker: image, chatid: to }, async (result) => {
                     console.log(`Send sticker to ${to} result = ${result}`);
+                    if (result) {
+                        const timeout = ms => new Promise(res => setTimeout(res, ms));
+                        await timeout(3000);
+                        WAPI.sendMessage2(to, caption);
+                    }
+                    else {
+                        WAPI.sendMessage2(to, 'Error: Sticker could not be sent.');
+                    }
                 });
-            }, to, image);
+            }, to, image, caption);
         }
         else {
             let imageFileName = `test.${this.getImageFileExtension(image)}`;
@@ -196,14 +204,27 @@ export default class WhatsappClient {
         }
     }
 
+    _qualifyText(message, text) {
+        return text.replace('$user', message.sender.id).replace('$quoteUser', message.quotedMsg && message.quotedMsg.senderId);
+    }
+
     async createBotMessage(message) {
         let parsedText = parse(message.text);
         
         let first = parsedText[0].trim();
-        let rest = parsedText[1];
-        let attachment = null
-        let sender = { id : message.sender.id, name : message.sender.name, shortName : message.sender.shortName, isMe : message.sender.isMe }
-        let chat = { id : message.chat.id }
+        let rest = this._qualifyText(message, parsedText[1]);
+        let attachment = null;
+        let sender = { id : message.sender.id, name : message.sender.name, shortName : message.sender.shortName, isMe : message.sender.isMe };
+        let chat = { id : message.chat.id };
+        
+        let hasTrigger = this.options.triggers.includes(first.substr(0, 1));
+        let isDirected = false;
+        if (!hasTrigger) {
+            isDirected = first.substr(-1) == ":" && this.options.aliases.includes(first.substr(0, first.length - 1));
+            if (!isDirected) {
+                return;
+            }
+        }
 
         if (first == "!moment" || first == "!screenshot") {
             if (first === "!moment" && rest.length == 0) {
@@ -246,10 +267,10 @@ export default class WhatsappClient {
         }
 
         if (first.length > 0) {
-            if (this.options.triggers.includes(first.substr(0, 1))) {
+            if (hasTrigger) {
                 return { text : join(first.substr(1), rest, ' '), sender, chat, attachment };
             }
-            else if (first.substr(-1) == ":" && this.options.aliases.includes(first.substr(0, first.length - 1))) {
+            else if (isDirected) {
                 return { text : join('natural', rest, ' '), sender, chat };
             }
         }
@@ -268,16 +289,22 @@ export default class WhatsappClient {
                 if (response.status == 200) {
                     console.log(`Received back: ${require('util').inspect(response.data, {depth:null})}`);
                     let data = response.data;
-                    let text = data.text;
+                    let text = data.text;                    
                     if (data.error) {
-                        text = "Error: " + data.message;
-                    }
-                    if (data.attachment) {
+                        text = "Error: " + text;
+                    }                    
+                    if (data.attachment) {                        
+                        if (data.addressee) {
+                            text = `${data.addressee}: ` + text + '☝☝';
+                        }
                         await this.sendImage(message.chat.id, 
                             data.attachment,
                             text);
                     }
                     else {
+                        if (data.addressee) {
+                            text = `${data.addressee}: ` + text;
+                        }
                         await this.sendMessage(message.chat.id, text);
                     }
                 }

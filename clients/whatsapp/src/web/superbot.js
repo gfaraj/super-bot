@@ -32,7 +32,8 @@ function processMessage(message) {
             mediaKey : message.quotedMsgObj && message.quotedMsgObj.mediaKey,
             url : message.quotedMsgObj && message.quotedMsgObj.clientUrl,
             filehash : message.quotedMsgObj && message.quotedMsgObj.filehash,
-            uploadhash : message.quotedMsgObj && message.quotedMsgObj.uploadhash
+            uploadhash : message.quotedMsgObj && message.quotedMsgObj.uploadhash,
+            senderId : message.quotedMsgObj && message.quotedMsgObj.sender.id._serialized
         }
     });
 }

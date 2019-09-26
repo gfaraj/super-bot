@@ -2,7 +2,6 @@ var Datastore = require('nedb')
   , db = new Datastore({ filename: './data/recording.db', autoload: true });
 
 db.ensureIndex({ fieldName: 'name' }, function (err) {
-    // If there was an error, err is not null
 });
 
 function parse(str) {
