@@ -5,5 +5,7 @@
 
     "app" : {
         "port" : 3000
-    }
+    },
+
+    "greeting" : "Hi! I'm a bot that responds to your commands."
 }

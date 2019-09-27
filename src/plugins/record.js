@@ -68,14 +68,18 @@ function handleForget(bot, message) {
     }
 }
 
-function handleRaw(bot, message) {
+function handleRaw(bot, message, next) {
     if (message.text.length == 0) {
+        next();
         return;
     }
 
     db.findOne({ name : message.text.toLowerCase(), chatId : message.chat.id }, function (err, doc) {
         if (doc) {
             bot.respond({ text : doc.text, attachment : doc.attachment });
+        }
+        else {
+            next();
         }
     });
 }

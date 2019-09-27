@@ -44,8 +44,8 @@ function () {
 
 export default class SuperBot {
     commandEmitter = new events.EventEmitter();
-    rawEmitter = new events.EventEmitter();
     middleware = new Middleware();
+    rawMiddleware = new Middleware();
 
     constructor(options) {
         this.options = options;        
@@ -78,7 +78,7 @@ export default class SuperBot {
     }
 
     raw(handler) {
-        this.rawEmitter.on('message', handler);
+        this.rawMiddleware.use(handler);
     }
 
     receive(message, handler) {
@@ -135,17 +135,10 @@ export default class SuperBot {
                         }
                     }, 10000);
                 }
-                else if (this.rawEmitter.listenerCount('message') > 0) {            
-                    this.rawEmitter.emit('message', callback, message);
-
-                    setTimeout(() => {
-                        if (handler != null) {
-                            callback.error(`I don't recognize "${message.text}".`);
-                        }
-                    }, 5000);
-                }
                 else {
-                    callback.error(`I don't recognize "${first}".`);
+                    this.rawMiddleware.go(callback, message, (b, message) => {
+                        callback.error(`I don't recognize "${first}".`);
+                    });
                 }
             }
             catch (err) {
