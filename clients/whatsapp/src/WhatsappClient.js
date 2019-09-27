@@ -185,7 +185,7 @@ export default class WhatsappClient {
                     console.log(`Send sticker to ${to} result = ${result}`);
                     if (result) {
                         const timeout = ms => new Promise(res => setTimeout(res, ms));
-                        await timeout(3000);
+                        await timeout(2000);
                         WAPI.sendMessage2(to, caption);
                     }
                     else {
