@@ -1,5 +1,5 @@
 # super-bot
-A simple but extensible bot written in Node.js. Currently there is only a Whatsapp interface, but any messaging platform can be supported by creating a client for it (e.g Slack, MS Teams, IRC).
+A simple but extensible bot written in Node.js. Currently there is a Whatsapp and a Slack interface, but any messaging platform can be supported by creating a client for it (e.g FB Messenger, MS Teams, IRC).
 
 ## Starting the bot
 
@@ -100,7 +100,7 @@ Hello world!
 
 The Whatsapp client works on top of the Whatsapp Web application. The API is not public, so any changes made by Whatsapp could disrupt it at any time. The client relays messages to the bot service and sends back the bot's replies. It picks up messages that start with the "!" character as commands for the bot. It also has a couple of client-specific commands like "!screenshot" which takes a screenshot of only the current chat and sends it there, and "!moment <name>" which takes the screenshot and also issues a "!record [name]" command to save the screenshot.
 
-The client supports sending custom stickers by using a very unreliable hack, since Whatsapp Web does not support this at all. Sometimes it will not work if the sticker has not been sent in a long time. This is still under construction.
+The client supports sending custom stickers by using a very unreliable hack, since Whatsapp Web does not support this at all. It seems to be working correctly, but please enter an issue if you find a bug.
 
 # Disclaimer
 
