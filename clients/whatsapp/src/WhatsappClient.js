@@ -62,7 +62,7 @@ export default class WhatsappClient {
             await pages[i].close();
         }
 
-        let page = await this.browser.newPage();        
+        let page = await this.browser.newPage();
         page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36');
         await page.setBypassCSP(true);
         await page.setViewport({
@@ -70,7 +70,7 @@ export default class WhatsappClient {
             height: 900
         })
         await page.goto(WHATSAPP_WEB_URL, {
-            waitUntil: 'networkidle0',
+            waitUntil: 'load',
             timeout: 0
         });        
         return page;

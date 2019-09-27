@@ -55,12 +55,20 @@ WAPI.waitNewMessages(false, (data) => {
                         console.log(m);
                         if (m && m.mediaData.mediaStage === 'RESOLVED') {
                             clearInterval(imageWaitInterval);
-                            getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
+                            if (m.mediaData.mediaBlob) {                                
+                                getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
+                                    WAPI.getMessageById(message.id, (m2) => {
+                                        m2.quotedMsgObj.body = data;
+                                        processMessage(m2);
+                                    });
+                                });
+                            }
+                            else if (m.type == "sticker") {
                                 WAPI.getMessageById(message.id, (m2) => {
-                                    m2.quotedMsgObj.body = data;
+                                    //m2.quotedMsgObj.body = data;
                                     processMessage(m2);
                                 });
-                            });
+                            }
                         }
                         else {
                             let chat = Store.Chat.get(message.chatId);
