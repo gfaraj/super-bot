@@ -87,7 +87,9 @@ export default class WhatsappClient {
         });
         
         this.page = await this.getWhatsappPage();
-                    
+
+        await timeout(5000);
+
         var filepath = path.join(__dirname, 'web/wapi.js');
         await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
 
