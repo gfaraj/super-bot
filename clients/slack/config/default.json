@@ -1,0 +1,8 @@
+{
+    "SlackClient" : {
+        "api_url" : "http://localhost:3000/",
+        "message_api_url" : "http://localhost:3000/message",
+        "triggers" : ["!"],
+        "aliases" : ["superbot", "sb", "smb"]
+    }
+}
