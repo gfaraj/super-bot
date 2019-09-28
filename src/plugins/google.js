@@ -8,58 +8,87 @@ const puppeteer = require('puppeteer');
 var browser;
 
 function extractGoogleResultsFinal(body) {
-    var results = [];
+    return new Promise(function (resolve, reject) {
+        var results = [];
+        var $ = cheerio.load(body);
+
+        $('#main > div > div > div > a').each(function(i, elem) {
+            if (results.length < max_results) {
+                var item = {};
+
+                var elemUrl = $(this);
+                var elemDesc = $(this).find('div');
+                var url = elemUrl.attr("href");
+                var parsedUrl = require('url').parse(url, true);
+                if (parsedUrl.pathname === '/url') {
+                    item['url'] = parsedUrl.query.q;
+                }
+                else {
+                    item['url'] = url;
+                }
+                item['title'] = elemDesc.text();
+
+                results.push(item);
+            }
+        });    
+
+        resolve(results);
+    });
+}
+
+async function getImageData(url) {
+    var res = await axios.get(url, { responseType: 'arraybuffer' });
+
+    return `data:${res.headers['content-type']};base64,${Buffer.from(String.fromCharCode(...new Uint8Array(res.data)), 'binary')
+          .toString('base64')}`;
+}
+
+async function extractGoogleImageResultFinal(body) {
+    var results;
     var $ = cheerio.load(body);
 
-    $('#main > div > div > div > a').each(function(i, elem) {
-        if (results.length < max_results) {
-            var item = {};
-
-            var elemUrl = $(this);
-            var elemDesc = $(this).find('div');
-            var url = elemUrl.attr("href");
-            var parsedUrl = require('url').parse(url, true);
-            if (parsedUrl.pathname === '/url') {
-                item['url'] = parsedUrl.query.q;
-            }
-            else {
-                item['url'] = url;
-            }
-            item['title'] = elemDesc.text();
-
-            results.push(item);
+    $('#search > div > div > div > div > div > div > div > a > img').each(function(i, elem) {
+    //$('.images_table img').each(function(i, elem) {
+        if (!results) {
+            results = $(this).attr('src');
         }
-    });    
+    });
 
-    return results;
+    return new Promise(resolve => {
+        resolve(results);
+    });
+
+    /*if (results)
+        return await getImageData(results);
+    return null;*/
 }
 
 const DEFAULT_CHROMIUM_ARGS = [
-    "--disable-gpu",
+    //"--disable-gpu",
     "--renderer",
     "--no-sandbox",
     "--no-service-autorun",
     "--no-experiments",
     "--no-default-browser-check",
-    "--disable-webgl",
+    //"--disable-webgl",
     "--disable-threaded-animation",
     "--disable-threaded-scrolling",
     "--disable-in-process-stack-traces",
     "--disable-histogram-customizer",
-    "--disable-gl-extensions",
+    //"--disable-gl-extensions",
     "--disable-extensions",
     "--disable-composited-antialiasing",
-    "--disable-canvas-aa",
+    //"--disable-canvas-aa",
     "--disable-3d-apis",
-    "--disable-accelerated-2d-canvas",
-    "--disable-accelerated-jpeg-decoding",
+    //"--disable-accelerated-2d-canvas",
+    //"--disable-accelerated-jpeg-decoding",
     "--disable-accelerated-mjpeg-decode",
     "--disable-app-list-dismiss-on-blur",
     "--disable-accelerated-video-decode",
-    "--num-raster-threads=1",
+    //"--num-raster-threads=1",
 ];
 
-async function extractGoogleResults(body) {
+async function extractGoogleResults(body, callback) {
     if (!browser) {
         browser = await puppeteer.launch({
             headless: true,
@@ -75,7 +104,7 @@ async function extractGoogleResults(body) {
     let page = await browser.newPage();
     await page.setContent(body, { waitUntil: 'networkidle0'});
 
-    return extractGoogleResultsFinal(await page.content());
+    return await callback(await page.content());
 }
 
 function handleGoogle(bot, message) {
@@ -87,7 +116,7 @@ function handleGoogle(bot, message) {
     };
     axios.get(google_search_url + querystring.stringify(params))
     .then(async response => {
-        let results = await extractGoogleResults(response.data);
+        let results = await extractGoogleResults(response.data, extractGoogleResultsFinal);
         let resultText = '';
         results.forEach((r, i) => {
             resultText += `${i+1}) ${r.url}\n`;
@@ -99,6 +128,31 @@ function handleGoogle(bot, message) {
     });
 }
 
+function handleGoogleImage(bot, message) {
+    let params = {
+        hl : 'en',
+        q : message.text,
+        start : 0,
+        num : 1,
+        tbm : 'isch',
+        source : 'lnms',
+        sa : 'X',
+        biw : 1920,
+        bih : 937
+    };
+    axios.get(google_search_url + querystring.stringify(params), { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36' } 
+    })
+    .then(async response => {
+        let result = await extractGoogleResults(response.data, extractGoogleImageResultFinal);
+        bot.respond(!result ? 'I didn\'t find anything' : { attachment: { data: result, mimetype: 'image/jpeg' } });
+    })
+    .catch(error => {
+        bot.error(`Sorry, I\'m having trouble contacting Google right now. ${error}`);
+    });
+}
+
 export default function(bot) {
     bot.command('google', handleGoogle);
+    bot.command('gimg', handleGoogleImage);
 }
