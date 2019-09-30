@@ -88,10 +88,33 @@ export default class WhatsappClient {
         
         this.page = await this.getWhatsappPage();
 
-        await timeout(8000);
+        console.log('Loading WAPI...');
 
         var filepath = path.join(__dirname, 'web/wapi.js');
-        await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
+        await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });        
+
+        console.log('Checking Whatsapp Web API...');
+
+        while (await this.page.evaluate(() => {
+            return !window.WAPI.isReady();
+        }))
+        {
+            console.log('Waiting for Whatsapp Web API...');
+            await this.page.evaluate(() => {
+                window.WAPI.autoDiscoverModules();
+            });
+            await timeout(3000);
+        }
+
+        console.log('Whatsapp Web API detected.');
+
+        await this.page.evaluate(() => {
+            window.WAPI.startListening();
+        });
+
+        console.log('Listening for new messages...');
+
+        console.log('Loading super-bot...');
 
         await this.page.exposeFunction('onMessageReceived', (message) => {
             this.onMessageReceived(message);
@@ -99,6 +122,8 @@ export default class WhatsappClient {
 
         var filepath = path.join(__dirname, 'web/superbot.js');
         await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
+
+        console.log('Done!');
     }
 
     async screenshotDOMElement(opts = {}) {
@@ -291,7 +316,7 @@ export default class WhatsappClient {
                 if (response.status == 200) {
                     console.log(`Received back: ${require('util').inspect(response.data, {depth:null})}`);
                     let data = response.data;
-                    let text = data.text;                    
+                    let text = data.text || '';
                     if (data.error) {
                         text = "Error: " + text;
                     }                    

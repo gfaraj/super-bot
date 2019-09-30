@@ -3,50 +3,56 @@
  * This script contains WAPI functions that need to be run in the context of the webpage
  */
 
+
+window.WAPI = {
+    lastRead: {}
+};
+
 /**
  * Auto discovery the webpack object references of instances that contains all functions used by the WAPI
  * functions and creates the Store object.
  */
-if (!window.Store) {
+let moduleId = 1;
+window.WAPI.autoDiscoverModules = function() {
     (function () {
         function getStore(modules) {
             let foundCount = 0;
             let neededObjects = [
-                { id: "Store", conditions: (module) => (module.Chat && module.Msg) ? module : null },
-                { id: "MediaCollection", conditions: (module) => (module.default && module.default.prototype && module.default.prototype.processFiles !== undefined) ? module.default : null },
-                { id: "ChatClass", conditions: (module) => (module.default && module.default.prototype && module.default.prototype.Collection !== undefined && module.default.prototype.Collection === "Chat") ? module : null },
-                { id: "MediaProcess", conditions: (module) => (module.BLOB) ? module : null },
-                { id: "Wap", conditions: (module) => (module.createGroup) ? module : null },
-                { id: "ServiceWorker", conditions: (module) => (module.default && module.default.killServiceWorker) ? module : null },
-                { id: "State", conditions: (module) => (module.STATE && module.STREAM) ? module : null },
-                { id: "WapDelete", conditions: (module) => (module.sendConversationDelete && module.sendConversationDelete.length == 2) ? module : null },
-                { id: "Conn", conditions: (module) => (module.default && module.default.ref && module.default.refTTL) ? module.default : null },
-                { id: "WapQuery", conditions: (module) => (module.queryExist) ? module : ((module.default && module.default.queryExist) ? module.default : null) },
-                { id: "CryptoLib", conditions: (module) => (module.decryptE2EMedia) ? module : null },
-                { id: "OpenChat", conditions: (module) => (module.default && module.default.prototype && module.default.prototype.openChat) ? module.default : null },
-                { id: "UserConstructor", conditions: (module) => (module.default && module.default.prototype && module.default.prototype.isServer && module.default.prototype.isUser) ? module.default : null },
-                { id: "SendTextMsgToChat", conditions: (module) => (module.sendTextMsgToChat) ? module.sendTextMsgToChat : null },
-                { id: "SendSeen", conditions: (module) => (module.sendSeen) ? module.sendSeen : null },
-                { id: "sendDelete", conditions: (module) => (module.sendDelete) ? module.sendDelete : null },
-                { id: "UiController", conditions: (module) => (module.default && module.default.focusNextChat) ? module.default : null },
-                { id: "RawMedia", conditions: (module) => (module.prepRawMedia) ? module : null },
-                { id: "DataFactory", conditions: (module) => (module.default && module.default.createFromData) ? module.default : null },
-                { id: "Sticker", conditions: (module) => (module.default && module.default.Sticker) ? module.default : null },
-                { id: "MediaUpload", conditions: (module) => (module.default && module.default.mediaUpload) ? module.default : null },
+                { id: "Store", conditions: (mod) => (mod.Chat && mod.Msg) ? mod : null },
+                { id: "MediaCollection", conditions: (mod) => (mod.default && mod.default.prototype && mod.default.prototype.processFiles !== undefined) ? mod.default : null },
+                { id: "ChatClass", conditions: (mod) => (mod.default && mod.default.prototype && mod.default.prototype.Collection !== undefined && mod.default.prototype.Collection === "Chat") ? mod : null },
+                { id: "MediaProcess", conditions: (mod) => (mod.BLOB) ? mod : null },
+                { id: "Wap", conditions: (mod) => (mod.createGroup) ? mod : null },
+                { id: "ServiceWorker", conditions: (mod) => (mod.default && mod.default.killServiceWorker) ? mod : null },
+                { id: "State", conditions: (mod) => (mod.STATE && mod.STREAM) ? mod : null },
+                { id: "WapDelete", conditions: (mod) => (mod.sendConversationDelete && mod.sendConversationDelete.length == 2) ? mod : null },
+                { id: "Conn", conditions: (mod) => (mod.default && mod.default.ref && mod.default.refTTL) ? mod.default : null },
+                { id: "WapQuery", conditions: (mod) => (mod.queryExist) ? mod : ((mod.default && mod.default.queryExist) ? mod.default : null) },
+                { id: "CryptoLib", conditions: (mod) => (mod.decryptE2EMedia) ? mod : null },
+                { id: "OpenChat", conditions: (mod) => (mod.default && mod.default.prototype && mod.default.prototype.openChat) ? mod.default : null },
+                { id: "UserConstructor", conditions: (mod) => (mod.default && mod.default.prototype && mod.default.prototype.isServer && mod.default.prototype.isUser) ? mod.default : null },
+                { id: "SendTextMsgToChat", conditions: (mod) => (mod.sendTextMsgToChat) ? mod.sendTextMsgToChat : null },
+                { id: "SendSeen", conditions: (mod) => (mod.sendSeen) ? mod.sendSeen : null },
+                { id: "sendDelete", conditions: (mod) => (mod.sendDelete) ? mod.sendDelete : null },
+                { id: "UiController", conditions: (mod) => (mod.default && mod.default.focusNextChat) ? mod.default : null },
+                { id: "RawMedia", conditions: (mod) => (mod.prepRawMedia) ? mod : null },
+                { id: "DataFactory", conditions: (mod) => (mod.default && mod.default.createFromData) ? mod.default : null },
+                { id: "Sticker", conditions: (mod) => (mod.default && mod.default.Sticker) ? mod.default : null },
+                { id: "MediaUpload", conditions: (mod) => (mod.default && mod.default.mediaUpload) ? mod.default : null },
             ];
             for (let idx in modules) {
                 if ((typeof modules[idx] === "object") && (modules[idx] !== null)) {
                     let first = Object.values(modules[idx])[0];
                     if ((typeof first === "object") && (first.exports)) {
                         for (let idx2 in modules[idx]) {
-                            let module = modules(idx2);
-                            if (!module) {
+                            let mod = modules(idx2);
+                            if (!mod) {
                                 continue;
                             }
                             neededObjects.forEach((needObj) => {
                                 if (!needObj.conditions || needObj.foundedModule)
                                     return;
-                                let neededModule = needObj.conditions(module);
+                                let neededModule = needObj.conditions(mod);
                                 if (neededModule !== null) {
                                     foundCount++;
                                     needObj.foundedModule = neededModule;
@@ -57,10 +63,10 @@ if (!window.Store) {
                             }
                         }
 
-                        let neededStore = neededObjects.find((needObj) => needObj.id === "Store");
-                        window.Store = neededStore.foundedModule ? neededStore.foundedModule : {};
+                        let neededStore = neededObjects.find(needObj => needObj.id === "Store");
+                        window.Store = neededStore.foundedModule || {};
                         neededObjects.splice(neededObjects.indexOf(neededStore), 1);
-                        neededObjects.forEach((needObj) => {
+                        neededObjects.forEach(needObj => {
                             if (needObj.foundedModule) {
                                 window.Store[needObj.id] = needObj.foundedModule;
                             }
@@ -74,13 +80,19 @@ if (!window.Store) {
             }
         }
 
-        webpackJsonp([], { 'parasite': (x, y, z) => getStore(z) }, ['parasite']);
-    })();
-}
+        let mod = {};
+        let exportName = `parasite${moduleId++}`;
+        mod[exportName] = (x, y, z) => getStore(z);
 
-window.WAPI = {
-    lastRead: {}
+        webpackJsonp([], mod, [exportName]);
+    })();
 };
+
+window.WAPI.autoDiscoverModules();
+
+window.WAPI.isReady = function() {
+    return !!window.Store && !!window.Store.Msg;
+}
 
 window.WAPI._serializeRawObj = (obj) => {
     if (obj) {
@@ -1157,51 +1169,54 @@ window.WAPI.checkNumberStatus = function (id, done) {
 /**
  * New messages observable functions.
  */
-window.WAPI._newMessagesQueue     = [];
-window.WAPI._newMessagesBuffer    = (sessionStorage.getItem('saved_msgs') != null) ? JSON.parse(sessionStorage.getItem('saved_msgs')) : [];
-window.WAPI._newMessagesDebouncer = null;
-window.WAPI._newMessagesCallbacks = [];
 
-window.Store.Msg.off('add');
-sessionStorage.removeItem('saved_msgs');
+window.WAPI.startListening = () => {
+    window.WAPI._newMessagesQueue     = [];
+    window.WAPI._newMessagesBuffer    = (sessionStorage.getItem('saved_msgs') != null) ? JSON.parse(sessionStorage.getItem('saved_msgs')) : [];
+    window.WAPI._newMessagesDebouncer = null;
+    window.WAPI._newMessagesCallbacks = [];
 
-window.WAPI._newMessagesListener = window.Store.Msg.on('add', (newMessage) => {
-    if (newMessage && newMessage.isNewMsg /*&& !newMessage.isSentByMe*/) {  //Edit by gfaraj: We want the bot respond to our messages too.
-        let message = window.WAPI.processMessageObj(newMessage, true, false);
-        if (message) {
-            window.WAPI._newMessagesQueue.push(message);
-            window.WAPI._newMessagesBuffer.push(message);
+    window.Store.Msg.off('add');
+    sessionStorage.removeItem('saved_msgs');
+
+    window.WAPI._newMessagesListener = window.Store.Msg.on('add', (newMessage) => {
+        if (newMessage && newMessage.isNewMsg /*&& !newMessage.isSentByMe*/) {  //Edit by gfaraj: We want the bot respond to our messages too.
+            let message = window.WAPI.processMessageObj(newMessage, true, false);
+            if (message) {
+                window.WAPI._newMessagesQueue.push(message);
+                window.WAPI._newMessagesBuffer.push(message);
+            }
+
+            // Starts debouncer time to don't call a callback for each message if more than one message arrives
+            // in the same second
+            if (!window.WAPI._newMessagesDebouncer && window.WAPI._newMessagesQueue.length > 0) {
+                window.WAPI._newMessagesDebouncer = setTimeout(() => {
+                    let queuedMessages = window.WAPI._newMessagesQueue;
+
+                    window.WAPI._newMessagesDebouncer = null;
+                    window.WAPI._newMessagesQueue     = [];
+
+                    let removeCallbacks = [];
+
+                    window.WAPI._newMessagesCallbacks.forEach(function (callbackObj) {
+                        if (callbackObj.callback !== undefined) {
+                            callbackObj.callback(queuedMessages);
+                        }
+                        if (callbackObj.rmAfterUse === true) {
+                            removeCallbacks.push(callbackObj);
+                        }
+                    });
+
+                    // Remove removable callbacks.
+                    removeCallbacks.forEach(function (rmCallbackObj) {
+                        let callbackIndex = window.WAPI._newMessagesCallbacks.indexOf(rmCallbackObj);
+                        window.WAPI._newMessagesCallbacks.splice(callbackIndex, 1);
+                    });
+                }, 1000);
+            }
         }
-
-        // Starts debouncer time to don't call a callback for each message if more than one message arrives
-        // in the same second
-        if (!window.WAPI._newMessagesDebouncer && window.WAPI._newMessagesQueue.length > 0) {
-            window.WAPI._newMessagesDebouncer = setTimeout(() => {
-                let queuedMessages = window.WAPI._newMessagesQueue;
-
-                window.WAPI._newMessagesDebouncer = null;
-                window.WAPI._newMessagesQueue     = [];
-
-                let removeCallbacks = [];
-
-                window.WAPI._newMessagesCallbacks.forEach(function (callbackObj) {
-                    if (callbackObj.callback !== undefined) {
-                        callbackObj.callback(queuedMessages);
-                    }
-                    if (callbackObj.rmAfterUse === true) {
-                        removeCallbacks.push(callbackObj);
-                    }
-                });
-
-                // Remove removable callbacks.
-                removeCallbacks.forEach(function (rmCallbackObj) {
-                    let callbackIndex = window.WAPI._newMessagesCallbacks.indexOf(rmCallbackObj);
-                    window.WAPI._newMessagesCallbacks.splice(callbackIndex, 1);
-                });
-            }, 1000);
-        }
-    }
-});
+    });
+};
 
 window.WAPI._unloadInform = (event) => {
     // Save in the buffer the ungot unreaded messages

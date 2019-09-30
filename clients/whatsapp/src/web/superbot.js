@@ -5,6 +5,7 @@ function getBase64ImageData(blob, callback) {
         callback(reader.result);
     }
 }
+
 function processMessage(message) {
     window.onMessageReceived({
         sender : {
@@ -37,6 +38,7 @@ function processMessage(message) {
         }
     });
 }
+
 WAPI.waitNewMessages(false, (data) => {
     if (!data || !(data instanceof Array)) return;
 
