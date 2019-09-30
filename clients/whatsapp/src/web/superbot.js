@@ -51,11 +51,12 @@ WAPI.waitNewMessages(false, (data) => {
                         clearInterval(imageWaitInterval);
                         return;
                     }
+                    maxWaitCount--;
                     WAPI.getMessageById(message.quotedMsgObj.id, async (m) => {
                         console.log(m);
                         if (m && m.mediaData.mediaStage === 'RESOLVED') {
                             clearInterval(imageWaitInterval);
-                            if (m.mediaData.mediaBlob) {                                
+                            if (m.mediaData.mediaBlob) {
                                 getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
                                     WAPI.getMessageById(message.id, (m2) => {
                                         m2.quotedMsgObj.body = data;
@@ -65,8 +66,15 @@ WAPI.waitNewMessages(false, (data) => {
                             }
                             else if (m.type == "sticker") {
                                 WAPI.getMessageById(message.id, (m2) => {
-                                    //m2.quotedMsgObj.body = data;
                                     processMessage(m2);
+                                });
+                            }
+                            else {
+                                window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
+                                    WAPI.getMessageById(message.id, (m2) => {
+                                        m2.quotedMsgObj.body = data.result;
+                                        processMessage(m2);
+                                    });
                                 });
                             }
                         }
@@ -93,6 +101,7 @@ WAPI.waitNewMessages(false, (data) => {
                     clearInterval(imageWaitInterval);
                     return;
                 }
+                maxWaitCount--;
                 WAPI.getMessageById(message.id, (m) => {
                     console.log(m);
                     if (!m) {

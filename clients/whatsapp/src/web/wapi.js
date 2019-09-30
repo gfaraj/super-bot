@@ -1034,6 +1034,41 @@ window.WAPI.downloadFile = function (url, done) {
     xhr.send(null);
 };
 
+window.WAPI.downloadFileBuffer = function (url, done) {
+    let xhr = new XMLHttpRequest();
+
+    xhr.onload = function () {
+        if (xhr.readyState == 4) {
+            if (xhr.status == 200) {
+                done(xhr.response);
+            } else {
+                console.error(xhr.statusText);
+            }
+        } else {
+            console.log(err);
+            done(false);
+        }
+    };
+
+    xhr.open("GET", url, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.send(null);
+};
+
+window.WAPI.downloadFileAndDecrypt = function ({ url, type, mediaKey, mimetype }, callbackFunction) {
+    window.WAPI.downloadFileBuffer(url, async function(result) {
+        let a = await Store.CryptoLib.decryptE2EMedia(type || "image", result, mediaKey, mimetype);
+        const reader = new FileReader();
+
+        reader.addEventListener('loadend', (e) => {
+            callbackFunction(e.target);
+        });
+
+        reader.readAsDataURL(a._blob);
+    });
+}
+
+
 window.WAPI.getBatteryLevel = function (done) {
     if (window.Store.Conn.plugged) {
         if (done !== undefined) {

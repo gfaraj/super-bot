@@ -70,7 +70,7 @@ export default class WhatsappClient {
             height: 900
         })
         await page.goto(WHATSAPP_WEB_URL, {
-            waitUntil: 'load',
+            waitUntil: 'networkidle0',
             timeout: 0
         });        
         return page;
@@ -88,7 +88,7 @@ export default class WhatsappClient {
         
         this.page = await this.getWhatsappPage();
 
-        await timeout(5000);
+        await timeout(8000);
 
         var filepath = path.join(__dirname, 'web/wapi.js');
         await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
