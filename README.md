@@ -80,6 +80,8 @@ The response is something like:
 2) https://en.wikipedia.org/wiki/Game_of_Thrones
 ```
 
+This plugin also exposes a "gimg" command that performs a Google Image Search and sends back the first image result (sends the actual image, not just a link). Currently it's returning a low-res image but it's possible to adjust it to get the original image.
+
 ### evaluate
 
 This plugin will evaluate an expression and respond with the result. It exposes two commands, eval and calc. The eval command accepts any type of (limited - it uses safe-eval) javascript expression, while the calc command will only work with numeric expressions.
@@ -101,6 +103,10 @@ Hello world!
 The Whatsapp client works on top of the Whatsapp Web application. The API is not public, so any changes made by Whatsapp could disrupt it at any time. The client relays messages to the bot service and sends back the bot's replies. It picks up messages that start with the "!" character as commands for the bot. It also has a couple of client-specific commands like "!screenshot" which takes a screenshot of only the current chat and sends it there, and "!moment <name>" which takes the screenshot and also issues a "!record [name]" command to save the screenshot.
 
 The client supports sending custom stickers by using a very unreliable hack, since Whatsapp Web does not support this at all. It seems to be working correctly, but please enter an issue if you find a bug.
+
+## Slack Client
+
+The Slack client is built using [https://www.npmjs.com/package/botkit](Botkit) version 0.7.0. It's not using the latest version of Botkit (v4 at the time of this writing) because it doesn't support the RTM API, and this is needed if you can't expose a public endpoint for Slack to push new messages. Currently, the Slack client only supports text messages. Support for images and other more advanced features are under construction.
 
 # Disclaimer
 
