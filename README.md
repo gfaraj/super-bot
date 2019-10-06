@@ -9,6 +9,8 @@ The root of this repository contains the bot service. You can run it with the fo
 npm run start
 ```
 
+The bot service starts a web server on port 3000 (which is configurable) and accepts POST requests on "http://localhost:3000/message" with the body being JSON data representing a message object. The bot then will run that message through any commands that are supported and sends back the response. This makes it really easy to have any number of interfaces tied to the same bot service. Currently there's no security to restrict access to this endpoint so be aware that anyone could post messages to the bot.
+
 The Whatsapp interface is located in ./clients/whatsapp and you can run that separately by setting that as the current directory and using the same run command.
 
 ## Configuration
