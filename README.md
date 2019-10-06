@@ -3,9 +3,10 @@ A simple but extensible bot written in Node.js. Currently there is a Whatsapp an
 
 ## Starting the bot
 
-The root of this repository contains the bot service. You can run it with the following command:
+The root of this repository contains the bot service. You can run it with the following commands:
 
 ```
+npm install
 npm run start
 ```
 
