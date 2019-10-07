@@ -12,25 +12,26 @@ function extractGoogleResultsFinal(body) {
         var results = [];
         var $ = cheerio.load(body);
 
-        $('#main > div > div > div > a').each(function(i, elem) {
-            if (results.length < max_results) {
-                var item = {};
+        $('#main > div > div > div > a').each(function(i, elem) {            
+            var item = {};
 
-                var elemUrl = $(this);
-                var elemDesc = $(this).find('div');
-                var url = elemUrl.attr("href");
-                var parsedUrl = require('url').parse(url, true);
-                if (parsedUrl.pathname === '/url') {
-                    item['url'] = parsedUrl.query.q;
-                }
-                else {
-                    item['url'] = url;
-                }
-                item['title'] = elemDesc.text();
-
-                results.push(item);
+            var elemUrl = $(this);
+            var elemDesc = $(this).find('div');
+            var url = elemUrl.attr("href");
+            var parsedUrl = require('url').parse(url, true);
+            if (parsedUrl.pathname === '/url') {
+                item['url'] = parsedUrl.query.q;
             }
-        });    
+            else {
+                item['url'] = url;
+            }
+            item['title'] = elemDesc.text();
+
+            results.push(item);
+            
+            if (results.length >= max_results)
+                return false;
+        });
 
         resolve(results);
     });
