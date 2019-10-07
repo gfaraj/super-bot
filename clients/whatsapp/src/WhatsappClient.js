@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer');
 const axios = require('axios');
 const mime = require('mime');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const WHATSAPP_WEB_URL = 'https://web.whatsapp.com/';
 const DEFAULT_CHROMIUM_ARGS = [
@@ -114,10 +115,19 @@ export default class WhatsappClient {
 
         console.log('Listening for new messages...');
 
+        console.log('Loading hash library...');
+
+        var filepath = path.join(__dirname, 'web/sha256.js');
+        await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
+
         console.log('Loading super-bot...');
 
         await this.page.exposeFunction('onMessageReceived', (message) => {
             this.onMessageReceived(message);
+        });
+
+        await this.page.exposeFunction('generateMediaKey', () => {
+            return crypto.randomBytes(32).toString('base64');
         });
 
         var filepath = path.join(__dirname, 'web/superbot.js');
@@ -207,7 +217,17 @@ export default class WhatsappClient {
 
     async sendImage(to, image, caption) {
         if (image.type == "sticker" || image.mimeType == 'image/webp') {
-            await this.page.evaluate((to, image, caption) => {
+            await this.page.evaluate(async (to, image, caption) => {
+                if (!image.url) {
+                    let encrypted = await WAPI.encryptAndUploadFile({
+                        type: "sticker", 
+                        data: window.WAPI.base64ImageToFile(image.data, "file.webp")
+                    });
+                    image.url = encrypted.clientUrl;
+                    image.mediaKey = encrypted.mediaKey;
+                    image.filehash = encrypted.filehash;
+                    image.uploadhash = encrypted.uploadhash;
+                }
                 WAPI.sendSticker({ sticker: image, chatid: to }, async (result) => {
                     console.log(`Send sticker to ${to} result = ${result}`);
                     if (result) {
@@ -337,7 +357,7 @@ export default class WhatsappClient {
                 }
             })
             .catch(error => {
-                console.log(`Error when contacting bot: ${error}`);
+                console.log(`Error when contacting bot: ${error}`, error.stack);
             });
         }
     }

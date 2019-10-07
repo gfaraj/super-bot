@@ -1,10 +1,13 @@
-function getBase64ImageData(blob, callback) {
-    var reader = new FileReader();
-    reader.readAsDataURL(blob); 
-    reader.onloadend = function() {
-        callback(reader.result);
-    }
-}
+/* ---
+Super-bot new message handler.
+*/
+
+window.getFileHash = async (data) => {
+    let buffer = await data.arrayBuffer();
+    var sha = new jsSHA("SHA-256", "ARRAYBUFFER");
+    sha.update(buffer);
+    return sha.getHash("B64");
+};
 
 function processMessage(message) {
     window.onMessageReceived({
@@ -59,11 +62,10 @@ WAPI.waitNewMessages(false, (data) => {
                         if (m && m.mediaData.mediaStage === 'RESOLVED') {
                             clearInterval(imageWaitInterval);
                             if (m.mediaData.mediaBlob) {
-                                getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
-                                    WAPI.getMessageById(message.id, (m2) => {
-                                        m2.quotedMsgObj.body = data;
-                                        processMessage(m2);
-                                    });
+                                let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
+                                WAPI.getMessageById(message.id, (m2) => {
+                                    m2.quotedMsgObj.body = data;
+                                    processMessage(m2);
                                 });
                             }
                             else if (m.type == "sticker") {
@@ -104,17 +106,16 @@ WAPI.waitNewMessages(false, (data) => {
                     return;
                 }
                 maxWaitCount--;
-                WAPI.getMessageById(message.id, (m) => {
+                WAPI.getMessageById(message.id, async (m) => {
                     console.log(m);
                     if (!m) {
                         clearInterval(imageWaitInterval);
                     }
                     else if (m.mediaData.mediaStage === 'RESOLVED') {
                         clearInterval(imageWaitInterval);
-                        getBase64ImageData(m.mediaData.mediaBlob._blob, (data) => {
-                            m.body = data;
-                            processMessage(m);
-                        });                                    
+                        let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
+                        m.body = data;
+                        processMessage(m);                     
                     }
                 });
             }, 3000);

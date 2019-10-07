@@ -1023,7 +1023,6 @@ window.WAPI.downloadFileWithCredentials = function (url, done) {
 window.WAPI.downloadFile = function (url, done) {
     let xhr = new XMLHttpRequest();
 
-
     xhr.onload = function () {
         if (xhr.readyState == 4) {
             if (xhr.status == 200) {
@@ -1080,6 +1079,52 @@ window.WAPI.downloadFileAndDecrypt = function ({ url, type, mediaKey, mimetype }
     });
 }
 
+function uploadEncryptedMediaFile({ url, hash, data }) {
+    return new Promise((resolve, reject) => {
+        let xhr = new XMLHttpRequest();
+
+        xhr.onload = function () {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    resolve(JSON.parse(xhr.responseText));
+                } else {
+                    reject(xhr.statusText);
+                }
+            } else {
+                reject(err);
+            }
+        };
+
+        let formData = new FormData();
+        formData.append('hash', hash);
+        formData.append('file', data , 'blob');
+
+        xhr.open("POST", url + '?f=j', true);
+        xhr.send(formData);
+    });
+}
+
+window.WAPI.fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+});
+
+window.WAPI.encryptAndUploadFile = async function ({ type, data }) {
+    let filehash = await window.getFileHash(data);
+    let mediaKey = await window.generateMediaKey();
+    let encrypted = await Store.CryptoLib.encryptE2EMedia(type, {
+        _blob: data,
+        retain: function() {},
+        autorelease: function() {}
+    }, mediaKey);
+    let uploadUrl = await Store.MediaUpload.requestEncryptedMediaUpload(type, encrypted.hash);
+    let uploadResponse = await uploadEncryptedMediaFile({url: uploadUrl.data, hash: encrypted.hash, data: encrypted.ciphertext._blob});
+    return {
+        clientUrl: uploadResponse.url, mediaKey, filehash, uploadhash: encrypted.hash
+    };
+}
 
 window.WAPI.getBatteryLevel = function (done) {
     if (window.Store.Conn.plugged) {
