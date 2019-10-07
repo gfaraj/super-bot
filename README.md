@@ -25,10 +25,17 @@ The bot is driven by plugins. Each plugin can define any number of commands that
 
 ```
 export default function(bot) {
-    bot.command('record', handleRecord);
-    bot.command('forget', handleForget);
-    bot.command('recordings', handleRecordings);
-    bot.raw(handleRaw);
+    bot.command('echo', (bot, message) => {
+        bot.respond({ text : message.text, attachment : message.attachment });   // just respond back with the same message.
+    });
+    bot.raw((bot, message, next) => {
+        if (message.text.includes('foo')) {  // check if we can handle this raw message.
+            bot.respond('bar');
+        }
+        else {
+            next();  // call next if your plugin can't handle this message.
+        }
+    });
 }
 ```
 
