@@ -128,6 +128,10 @@ The client supports sending custom stickers by using a very unreliable hack, sin
 
 The Slack client is built using [Botkit](https://www.npmjs.com/package/botkit) version 0.7.0. It's not using the latest version of Botkit (v4 at the time of this writing) because it doesn't support the RTM API, and this is needed if you can't expose a public endpoint for Slack to push new messages. Currently, the Slack client only supports text messages. Support for images and other more advanced features is under construction.
 
+## Contribution
+
+Contribution of any kind is welcome! Please feel free to create your own plugins for the bot service, chat interfaces, features or bug fixes. Fork the repository, create your own branch and submit pull requests.
+
 # Disclaimer
 
 This project was done for educational purposes. This code is in no way affiliated with, authorized, maintained, sponsored or endorsed by WhatsApp or any of its affiliates or subsidiaries. This is an independent and unofficial software. Use at your own risk.
