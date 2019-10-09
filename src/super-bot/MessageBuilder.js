@@ -1,8 +1,10 @@
+import Message from './Message'
+
 export default class MessageBuilder {
 
   constructor(original) {
     this.original = original;
-    this.message = {};
+    this.message = new Message();
 
     if (original && original.addressee) {
       this.message.addressee = original.addressee

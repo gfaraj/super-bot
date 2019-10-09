@@ -1,4 +1,5 @@
 import Middleware from './Middleware'
+import Message from './Message'
 import MessageBuilder from './MessageBuilder'
 
 function parse(str) {
@@ -92,6 +93,9 @@ export default class SuperBot {
                         }
                         else if (m instanceof MessageBuilder) {
                             m = m.build();
+                        }
+                        else if (!(m instanceof Message)) {
+                            m = bot.new().raw(m).build();
                         }
                         return m;
                     },
