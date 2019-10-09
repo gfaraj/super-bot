@@ -11,8 +11,7 @@ export default class Middleware {
         Array.prototype.reduceOneRight = function() {
           return this.slice(0, -1);
         }
-      }
-      
+      }      
     }
     
     use(fn) {

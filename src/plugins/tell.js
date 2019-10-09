@@ -4,8 +4,10 @@ function parse(str) {
 };
 
 export default function(bot) {
-    bot.command('tell', (bot, message) => {
+    bot.command('tell', async (bot, message) => {
         let parsedText = parse(message.text);
-        bot.pass({ text: parsedText[1], attachment: message.attachment, addressee: parsedText[0], sender: message.sender, chat: message.chat });
+        bot.pass(bot.copy(message)
+            .text(parsedText[1])
+            .addressee(parsedText[0]));
     });
 }

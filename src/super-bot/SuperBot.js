@@ -1,5 +1,5 @@
 import Middleware from './Middleware'
-var events = require('events');
+import MessageBuilder from './MessageBuilder'
 
 function parse(str) {
     let pos = str.indexOf(' ');
@@ -43,7 +43,7 @@ function () {
 };
 
 export default class SuperBot {
-    commandEmitter = new events.EventEmitter();
+    commands = {};
     middleware = new Middleware();
     rawMiddleware = new Middleware();
 
@@ -56,7 +56,7 @@ export default class SuperBot {
         this._started = true;
 
         this.command('all', (bot, message) => {
-            bot.respond(this.commandEmitter.eventNames().join(', '));
+            bot.respond(Object.getOwnPropertyNames(this.commands).join(', '));
         })
 
         if (this.options.pluginsPath) {
@@ -71,80 +71,74 @@ export default class SuperBot {
 
     command(command, handler) {
         command = command.toLowerCase();
-        if (this.commandEmitter.listenerCount(command) > 0) {
+        if (this.commands[command]) {
             throw new Error(`Command already registered: ${command}`);
         }
-        this.commandEmitter.on(command, handler);
+        this.commands[command] = handler;
     }
 
     raw(handler) {
         this.rawMiddleware.use(handler);
     }
 
-    receive(message, handler) {
-        if (handler == null) {
-            return;
-        }
-
-        let bot = this;
-
-        let callback = {
-            error: function(error) {
-                if (handler != null) {
-                    handler({ text: error, error: true });
-                    handler = null;
-                }
-            },
-            respond: function (m) {
-                if (typeof m == 'string') {
-                    m = { text: m };
-                }
-                m.addressee = message.addressee;
-                if (handler != null) {
-                    handler(m);
-                    handler = null;
-                }
-            },
-            pass: function (m) {
-                bot.receive(m, handler);
-                handler = null;
-            }
-        }
-
-        this.middleware.go(callback, message, (b, message) => {
-            let parsedText = parse(message.text);
-        
-            let first = parsedText[0].toLowerCase();
-            if (first.length === 0) {
-                callback.error('I don\'t understand that.');
-                return;
-            }
-
-            try {
-                if (this.commandEmitter.listenerCount(first) > 0) {
-                    let command = first;
-                    message.command = command;
-                    message.fullText = message.text;
-                    message.text = parsedText[1];
-                
-                    this.commandEmitter.emit(command, callback, message);
-
-                    setTimeout(() => {
-                        if (handler != null) {
-                            callback.error('Something went wrong.');
+    async receive(message) {
+        return new Promise(resolve => {
+            this.middleware.go(this, message, (b, message) => {
+                let parsedText = parse(message.text);
+                let bot = {
+                    _sanitize: m => {
+                        if (typeof m === 'string') {
+                            m = bot.new().text(m).build();
                         }
-                    }, 10000);
+                        else if (m instanceof MessageBuilder) {
+                            m = m.build();
+                        }
+                        return m;
+                    },
+                    new: () => new MessageBuilder(message),
+                    respond: m => {
+                        resolve(bot._sanitize(m));
+                    },
+                    receive: async m => {
+                        return await this.receive(bot._sanitize(m));
+                    },
+                    pass: async m => {
+                        bot.respond(await bot.receive(m));
+                    },
+                    error: s => {
+                        bot.respond(bot.new().error(s).build());
+                    },
+                    copy: m => {
+                        return new MessageBuilder().raw(m);
+                    }
+                };
+            
+                let first = parsedText[0].toLowerCase();
+                if (first.length === 0) {
+                    bot.error('I don\'t understand that.');
+                    return;
                 }
-                else {
-                    this.rawMiddleware.go(callback, message, (b, message) => {
-                        callback.error(`I don't recognize "${first}".`);
-                    });
+
+                try {
+                    if (this.commands[first]) {
+                        let command = first;
+                        message.command = command;
+                        message.fullText = message.text;
+                        message.text = parsedText[1];
+
+                        this.commands[first](bot, message);
+                    }
+                    else {
+                        this.rawMiddleware.go(bot, message, (b, message) => {
+                            bot.error(`I don't recognize "${first}".`);
+                        });
+                    }
                 }
-            }
-            catch (err) {
-                console.log(err);
-                callback.error('Something went wrong.');
-            }
+                catch (err) {
+                    console.log(err);
+                    bot.error('Something went wrong.');
+                }
+            });
         });
     }
 }

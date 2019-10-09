@@ -12,12 +12,16 @@ async function main() {
     const app = express();
     app.use(express.json({ limit: '20mb' }));
 
-    app.post('/message', function (req, res) {
-        console.log(`Received: ${require('util').inspect(req.body, {depth:null})}`);
-        bot.receive(req.body, (message) => {
+    app.post('/message', async (req, res) => {
+        try {
+            console.log(`Received: ${require('util').inspect(req.body, {depth:null})}`);
+            let message = await bot.receive(req.body);
             console.log(`Sending: ${require('util').inspect(message, {depth:null})}`);
             res.send(message);
-        });
+        }
+        catch (error) {
+            console.log(error);
+        }
     });
 
     const port = config.get('app.port') || 3000;
