@@ -113,9 +113,19 @@ WAPI.waitNewMessages(false, (data) => {
                     }
                     else if (m.mediaData.mediaStage === 'RESOLVED') {
                         clearInterval(imageWaitInterval);
-                        let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
-                        m.body = data;
-                        processMessage(m);                     
+                        if (m.mediaData.mediaBlob) {
+                            let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
+                            m.body = data;
+                            processMessage(m);
+                        }
+                        else {
+                            window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
+                                WAPI.getMessageById(message.id, (m2) => {
+                                    m2.body = data.result;
+                                    processMessage(m2);
+                                });
+                            });
+                        }
                     }
                 });
             }, 3000);
