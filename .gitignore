@@ -63,3 +63,5 @@ clients/whatsapp/user_data/
 data/
 Superbot-807b1a9f4f85.json
 clients/whatsapp/screenshot.png
+rb_user_data/
+temp/
