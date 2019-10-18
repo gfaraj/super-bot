@@ -2,6 +2,8 @@
 Super-bot new message handler.
 */
 
+const timeout = ms => new Promise(res => setTimeout(res, ms));
+
 window.getFileHash = async (data) => {
     let buffer = await data.arrayBuffer();
     var sha = new jsSHA("SHA-256", "ARRAYBUFFER");
@@ -42,6 +44,112 @@ function processMessage(message) {
     });
 }
 
+function handleQuotedImage(message) {
+    console.log("Processing a quoted image message...");
+
+    let maxWaitCount = 8;
+    let uiBusy = false;
+    let imageWaitInterval = setInterval(function() {
+        if (maxWaitCount <= 0) {
+            console.log("Could not resolve the quoted image, tried the maximum number of times.");
+            clearInterval(imageWaitInterval);
+            return;
+        }
+        maxWaitCount--;
+        WAPI.getMessageById(message.quotedMsgObj.id, async (m) => {
+            console.log(m);
+            if (m && m.mediaData.mediaStage === 'RESOLVED') {
+                console.log("Quoted image resolved...");
+                clearInterval(imageWaitInterval);
+                if (m.mediaData.mediaBlob) {
+                    let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
+                    WAPI.getMessageById(message.id, (m2) => {
+                        m2.quotedMsgObj.body = data;
+                        processMessage(m2);
+                    });
+                }
+                else if (m.type == "sticker") {
+                    WAPI.getMessageById(message.id, (m2) => {
+                        processMessage(m2);
+                    });
+                }
+                else {
+                    window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
+                        WAPI.getMessageById(message.id, (m2) => {
+                            m2.quotedMsgObj.body = data.result;
+                            processMessage(m2);
+                        });
+                    });
+                }
+            }
+            else {
+                let chat = Store.Chat.get(message.chat.id._serialized);
+                if (chat) {
+                    await chat.loadEarlierMsgs();
+                    await chat.loadEarlierMsgs();
+
+                    let m2 = Store.Msg.get(message.quotedMsgObj.id);
+                    if (m2) {
+                        clearInterval(imageWaitInterval);
+                        window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
+                            WAPI.getMessageById(message.id, (m3) => {
+                                m3.quotedMsgObj.body = data.result;
+                                processMessage(m3);
+                            });
+                        });
+                    }
+                }
+            }
+        });
+    }, 5000);
+}
+
+function handleImageMessage(message) {
+    console.log("Processing an image message...");
+
+    let chat = Store.Chat.get(message.chat.id._serialized);
+    if (!chat) {
+        console.log(`Could not find chat: ${message.chat.id._serialized}`);
+        return;
+    }
+
+    Store.UiController.openChatBottom(chat);
+
+    let maxWaitCount = 8;
+    let imageWaitInterval = setInterval(function() {
+        if (maxWaitCount <= 0) {
+            console.log("Could not resolve the image, tried the maximum number of times.");
+            clearInterval(imageWaitInterval);
+            return;
+        }
+        maxWaitCount--;
+        WAPI.getMessageById(message.id, async (m) => {
+            console.log(m);
+            if (!m) {
+                console.log("Could not find message, aborting...");
+                clearInterval(imageWaitInterval);
+            }
+            else if (m.mediaData.mediaStage === 'RESOLVED') {
+                console.log("Image resolved...");
+                clearInterval(imageWaitInterval);
+                if (m.mediaData.mediaBlob) {
+                    let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
+                    m.body = data;
+                    processMessage(m);
+                }
+                else {
+                    window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
+                        WAPI.getMessageById(message.id, (m2) => {
+                            m2.body = data.result;
+                            processMessage(m2);
+                        });
+                    });
+                }
+            }
+        });
+    }, 3000);
+}
+
 WAPI.waitNewMessages(false, (data) => {
     if (!data || !(data instanceof Array)) return;
 
@@ -50,85 +158,14 @@ WAPI.waitNewMessages(false, (data) => {
 
         if (message.type === 'chat') {
             if (message.quotedMsgObj && (message.quotedMsgObj.type === "sticker" || message.quotedMsgObj.type === "image")) {
-                let maxWaitCount = 8;
-                let imageWaitInterval = setInterval(function() {
-                    if (maxWaitCount <= 0) {
-                        clearInterval(imageWaitInterval);
-                        return;
-                    }
-                    maxWaitCount--;
-                    WAPI.getMessageById(message.quotedMsgObj.id, async (m) => {
-                        console.log(m);
-                        if (m && m.mediaData.mediaStage === 'RESOLVED') {
-                            clearInterval(imageWaitInterval);
-                            if (m.mediaData.mediaBlob) {
-                                let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
-                                WAPI.getMessageById(message.id, (m2) => {
-                                    m2.quotedMsgObj.body = data;
-                                    processMessage(m2);
-                                });
-                            }
-                            else if (m.type == "sticker") {
-                                WAPI.getMessageById(message.id, (m2) => {
-                                    processMessage(m2);
-                                });
-                            }
-                            else {
-                                window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
-                                    WAPI.getMessageById(message.id, (m2) => {
-                                        m2.quotedMsgObj.body = data.result;
-                                        processMessage(m2);
-                                    });
-                                });
-                            }
-                        }
-                        else {
-                            let chat = Store.Chat.get(message.chatId);
-                            await Store.UiController.openChatBottom(chat);
-                            await chat.loadEarlierMsgs();
-                            if (m) {
-                                Store.UiController.scrollToPtt(m);
-                            }
-                        }
-                    });
-                }, 3000);
+                handleQuotedImage(message);
             }
             else {
                 processMessage(message);
             }
         }
         else if (message.type === 'image' && message.caption && message.caption.length > 0) {
-            Store.UiController.openChatBottom(Store.Chat.get(message.chat.id._serialized));
-            let maxWaitCount = 8;
-            let imageWaitInterval = setInterval(function() {
-                if (maxWaitCount <= 0) {
-                    clearInterval(imageWaitInterval);
-                    return;
-                }
-                maxWaitCount--;
-                WAPI.getMessageById(message.id, async (m) => {
-                    console.log(m);
-                    if (!m) {
-                        clearInterval(imageWaitInterval);
-                    }
-                    else if (m.mediaData.mediaStage === 'RESOLVED') {
-                        clearInterval(imageWaitInterval);
-                        if (m.mediaData.mediaBlob) {
-                            let data = await window.WAPI.fileToBase64(m.mediaData.mediaBlob._blob);
-                            m.body = data;
-                            processMessage(m);
-                        }
-                        else {
-                            window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
-                                WAPI.getMessageById(message.id, (m2) => {
-                                    m2.body = data.result;
-                                    processMessage(m2);
-                                });
-                            });
-                        }
-                    }
-                });
-            }, 3000);
+            handleImageMessage(message);
         }
     });
 });

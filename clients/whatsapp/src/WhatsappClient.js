@@ -355,6 +355,9 @@ export default class WhatsappClient {
                         await this.sendMessage(message.chat.id, text);
                     }
                 }
+                else {
+                    console.log(`Could not contact bot.`);
+                }
             })
             .catch(error => {
                 console.log(`Error when contacting bot: ${error}`, error.stack);
