@@ -1,6 +1,15 @@
 import express from 'express'
 import { SuperBot } from './super-bot'
 
+function inspectMessage(msg) {
+    return JSON.stringify(msg, function (key, value) {
+        if (key === 'data' && typeof value === 'string' && value.length > 50) {
+            return value.substring(0, 50) + '[...]';
+        }
+        return value;
+    });
+}
+
 async function main() {
     console.log('Starting SuperBot...');
 
@@ -14,9 +23,12 @@ async function main() {
 
     app.post('/message', async (req, res) => {
         try {
-            console.log(`Received: ${require('util').inspect(req.body, {depth:null})}`);
+            console.log(`Received: ${inspectMessage(req.body)}`);
+
             let message = await bot.receive(req.body);
-            console.log(`Sending: ${require('util').inspect(message, {depth:null})}`);
+
+            console.log(`Sending: ${inspectMessage(message)}`);
+
             res.send(message);
         }
         catch (error) {

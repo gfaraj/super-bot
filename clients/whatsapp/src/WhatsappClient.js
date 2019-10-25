@@ -51,6 +51,15 @@ function join(str1, str2, delim) {
     }
 }
 
+function inspectMessage(msg) {
+    return JSON.stringify(msg, function (key, value) {
+        if (key === 'data' && typeof value === 'string' && value.length > 50) {
+            return value.substring(0, 50) + '[...]';
+        }
+        return value;
+    });
+}
+
 export default class WhatsappClient {
     
     constructor(options) {
@@ -330,11 +339,11 @@ export default class WhatsappClient {
         
         let botMessage = await this.createBotMessage(message);
         if (botMessage) {
-            console.log(`Sending to bot: ${require('util').inspect(botMessage, {depth:null})}`);
+            console.log(`Sending to bot: ${inspectMessage(botMessage)}`);
             axios.post(this.options.message_api_url, botMessage)
             .then(async response => {
                 if (response.status == 200) {
-                    console.log(`Received back: ${require('util').inspect(response.data, {depth:null})}`);
+                    console.log(`Received back: ${inspectMessage(response.data)}`);
                     let data = response.data;
                     let text = data.text || '';
                     if (data.error) {
