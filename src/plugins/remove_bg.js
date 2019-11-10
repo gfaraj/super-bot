@@ -93,13 +93,13 @@ async function removeImageBackground(image) {
         timeout: 0
     });
 
-    await page.waitFor('#home button.btn-primary', {timeout: 10000});
+    await page.waitFor('button.btn-primary.btn-lg', {timeout: 10000});
 
     let imageFileName = await saveImageToFile(image);
 
     const [fileChooser] = await Promise.all([
         page.waitForFileChooser(),
-        page.click('#home button.btn-primary'),
+        page.click('button.btn-primary.btn-lg'),
     ]);
     await fileChooser.accept([imageFileName]);
 
