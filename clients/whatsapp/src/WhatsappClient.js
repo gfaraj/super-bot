@@ -4,6 +4,7 @@ const axios = require('axios');
 const mime = require('mime');
 const fs = require('fs');
 const crypto = require('crypto');
+const express = require('express');
 
 const WHATSAPP_WEB_URL = 'https://web.whatsapp.com/';
 const DEFAULT_CHROMIUM_ARGS = [
@@ -142,7 +143,35 @@ export default class WhatsappClient {
         var filepath = path.join(__dirname, 'web/superbot.js');
         await this.page.addScriptTag({ path: filepath, type: 'text/javascript' });
 
+        console.log('Starting callback server...');
+
+        await this.startCallbackServer();
+
         console.log('Done!');
+    }
+
+    async startCallbackServer() {
+        const route = '/message';
+        const port = this.options.callback_url_port || 3001;
+        this.callbackUrl = `${this.options.callback_url_base}:${port}${route}`;
+
+        const server = express();
+        server.use(express.json({ limit: '20mb' }));
+
+        server.post(route, async (req, res) => {
+            try {
+                console.log(`Bot Sent: ${inspectMessage(req.body)}`);
+
+                await this.onBotMessageReceived(req.body);
+            }
+            catch (error) {
+                console.log(error);
+            }
+        });
+
+        server.listen(port, () => {
+            console.log(`Listening on ${this.callbackUrl}...`);
+        });
     }
 
     async screenshotDOMElement(opts = {}) {
@@ -334,35 +363,44 @@ export default class WhatsappClient {
         return null;
     }
 
+    async onBotMessageReceived(message) {
+        let text = message.text || '';
+        if (message.error) {
+            text = "Error: " + text;
+        }                    
+        if (message.attachment) {                        
+            if (message.addressee) {
+                text = `${message.addressee}: ` + text + '☝☝';
+            }
+            await this.sendImage(message.chat.id, 
+                message.attachment,
+                text);
+        }
+        else {
+            if (message.addressee) {
+                text = `${message.addressee}: ` + text;
+            }
+            await this.sendMessage(message.chat.id, text);
+        }
+    }
+
     async onMessageReceived(message) {
         console.log(`Message from ${message.sender.name}: ${message.text}`);
         
         let botMessage = await this.createBotMessage(message);
         if (botMessage) {
+            botMessage.callbackUrl = this.callbackUrl;
+
             console.log(`Sending to bot: ${inspectMessage(botMessage)}`);
             axios.post(this.options.message_api_url, botMessage)
             .then(async response => {
                 if (response.status == 200) {
                     console.log(`Received back: ${inspectMessage(response.data)}`);
                     let data = response.data;
-                    let text = data.text || '';
-                    if (data.error) {
-                        text = "Error: " + text;
-                    }                    
-                    if (data.attachment) {                        
-                        if (data.addressee) {
-                            text = `${data.addressee}: ` + text + '☝☝';
-                        }
-                        await this.sendImage(message.chat.id, 
-                            data.attachment,
-                            text);
+                    if (!data.chat || !data.chat.id) {
+                        data.chat = { id: message.chat.id };
                     }
-                    else {
-                        if (data.addressee) {
-                            text = `${data.addressee}: ` + text;
-                        }
-                        await this.sendMessage(message.chat.id, text);
-                    }
+                    await this.onBotMessageReceived(data);
                 }
                 else {
                     console.log(`Could not contact bot.`);

@@ -7,7 +7,7 @@ db.ensureIndex({ fieldName: 'name' }, function (err) {
 function parse(str) {
     let pos = str.indexOf(' ');
     return (pos === -1) ? [str, ''] : [str.substr(0, pos), str.substr(pos + 1)];
-};
+}
 
 function handleRecord(bot, message) {
     let parsedText = parse(message.text);
