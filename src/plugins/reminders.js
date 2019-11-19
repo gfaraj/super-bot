@@ -14,7 +14,7 @@ function parse(str) {
 function parseWhen(when) {
     var now = new Date();
     var mom = moment().seconds(0);
-    var matches = when.match(/\d+[y,m,w,d,h,m]/g);
+    var matches = when.match(/\d+[y,M,w,d,h,m]/g);
     if (matches) {
         for (let m of matches) {
             let number = m.substr(0, m.length - 1);
