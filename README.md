@@ -1,3 +1,6 @@
+[![Actions Status](https://github.com/gfaraj/super-bot/workflows/Node%20CI/badge.svg)](https://github.com/gfaraj/super-bot/actions)
+
+
 # super-bot
 A simple but extensible bot written in Node.js. Currently there is a Whatsapp and a Slack interface, but any messaging platform can be supported by creating a client for it (e.g FB Messenger, MS Teams, IRC).
 
