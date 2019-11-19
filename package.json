@@ -21,10 +21,14 @@
     "safe-eval": "^0.4.1",
     "sharp": "^0.23.1"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "mocha": "^6.2.2",
+    "should": "^13.2.3"
+  },
   "scripts": {
     "start": "node .",
-    "start:dev": "node ."
+    "start:dev": "node .",
+    "test": "mocha --recursive --require esm --exit"
   },
   "repository": {
     "type": "git",

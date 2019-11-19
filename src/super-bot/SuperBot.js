@@ -1,6 +1,7 @@
 import Middleware from './Middleware'
 import Message from './Message'
 import MessageBuilder from './MessageBuilder'
+import SuperBotProxy from './SuperBotProxy'
 
 function parse(str) {
     let pos = str.indexOf(' ');
@@ -86,36 +87,7 @@ export default class SuperBot {
         return new Promise(resolve => {
             this.middleware.go(this, message, (b, message) => {
                 let parsedText = parse(message.text);
-                let bot = {
-                    _sanitize: m => {
-                        if (typeof m === 'string') {
-                            m = bot.new().text(m).build();
-                        }
-                        else if (m instanceof MessageBuilder) {
-                            m = m.build();
-                        }
-                        else if (!(m instanceof Message)) {
-                            m = bot.new().raw(m).build();
-                        }
-                        return m;
-                    },
-                    new: () => new MessageBuilder(message),
-                    respond: m => {
-                        resolve(bot._sanitize(m));
-                    },
-                    receive: async m => {
-                        return await this.receive(bot._sanitize(m));
-                    },
-                    pass: async m => {
-                        bot.respond(await bot.receive(m));
-                    },
-                    error: s => {
-                        bot.respond(bot.new().error(s).build());
-                    },
-                    copy: m => {
-                        return new MessageBuilder().raw(m);
-                    }
-                };
+                let bot = new SuperBotProxy(this, message, resolve);
             
                 let first = parsedText[0].toLowerCase();
                 if (first.length === 0) {
