@@ -71,9 +71,14 @@ window.WAPI.autoDiscoverModules = function() {
                                 window.Store[needObj.id] = needObj.foundedModule;
                             }
                         });
-                        window.Store.ChatClass.default.prototype.sendMessage = function (e) {
-                            return window.Store.SendTextMsgToChat(this, ...arguments);
+                        if (window.Store.Chat && window.Store.Chat.modelClass) {
+                            window.Store.Chat.modelClass.prototype.sendMessage = function (e) {
+                                return window.Store.SendTextMsgToChat(this, ...arguments);
+                            }
                         }
+                        else {
+                            window.Store = null;
+                        }                        
                         return window.Store;
                     }
                 }
@@ -87,8 +92,6 @@ window.WAPI.autoDiscoverModules = function() {
         webpackJsonp([], mod, [exportName]);
     })();
 };
-
-window.WAPI.autoDiscoverModules();
 
 window.WAPI.isReady = function() {
     return !!window.Store && !!window.Store.Msg;
@@ -1554,3 +1557,5 @@ window.WAPI.demoteParticipantAdminGroup = function (idGroup, idParticipant, done
         done(true); return true;
     })
 }
+
+window.WAPI.autoDiscoverModules();
