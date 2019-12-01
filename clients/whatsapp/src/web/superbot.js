@@ -74,11 +74,10 @@ function handleQuotedImage(message) {
                     });
                 }
                 else {
-                    window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
-                        WAPI.getMessageById(message.id, (m2) => {
-                            m2.quotedMsgObj.body = data.result;
-                            processMessage(m2);
-                        });
+                    let data = await window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype });
+                    WAPI.getMessageById(message.id, (m2) => {
+                        m2.quotedMsgObj.body = data.result;
+                        processMessage(m2);
                     });
                 }
             }
@@ -89,13 +88,12 @@ function handleQuotedImage(message) {
                     await chat.loadEarlierMsgs();
 
                     let m2 = Store.Msg.get(message.quotedMsgObj.id);
-                    if (m2) {
+                    if (m2 && m2.clientUrl) {
                         clearInterval(imageWaitInterval);
-                        window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
-                            WAPI.getMessageById(message.id, (m3) => {
-                                m3.quotedMsgObj.body = data.result;
-                                processMessage(m3);
-                            });
+                        let data = await window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype });
+                        WAPI.getMessageById(message.id, (m3) => {
+                            m3.quotedMsgObj.body = data.result;
+                            processMessage(m3);
                         });
                     }
                 }
@@ -138,11 +136,10 @@ function handleImageMessage(message) {
                     processMessage(m);
                 }
                 else {
-                    window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype }, (data) => {
-                        WAPI.getMessageById(message.id, (m2) => {
-                            m2.body = data.result;
-                            processMessage(m2);
-                        });
+                    let data = await window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype });
+                    WAPI.getMessageById(message.id, (m2) => {
+                        m2.body = data.result;
+                        processMessage(m2);
                     });
                 }
             }

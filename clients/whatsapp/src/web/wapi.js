@@ -37,8 +37,9 @@ window.WAPI.autoDiscoverModules = function() {
                 { id: "UiController", conditions: (mod) => (mod.default && mod.default.focusNextChat) ? mod.default : null },
                 { id: "RawMedia", conditions: (mod) => (mod.prepRawMedia) ? mod : null },
                 { id: "DataFactory", conditions: (mod) => (mod.default && mod.default.createFromData) ? mod.default : null },
-                { id: "Sticker", conditions: (mod) => (mod.default && mod.default.Sticker) ? mod.default : null },
+                { id: "Sticker", conditions: (mod) => (mod.default && mod.default.Sticker) ? mod.default.Sticker : null },
                 { id: "MediaUpload", conditions: (mod) => (mod.default && mod.default.mediaUpload) ? mod.default : null },
+                { id: "UploadUtils", conditions: (module) => (module.default && module.default.encryptAndUpload) ? module.default : null }
             ];
             for (let idx in modules) {
                 if ((typeof modules[idx] === "object") && (modules[idx] !== null)) {
@@ -1048,34 +1049,88 @@ window.WAPI.downloadFile = function (url, done) {
     xhr.send(null);
 };
 
-window.WAPI.downloadFileBuffer = function (url, done) {
-    let xhr = new XMLHttpRequest();
+window.WAPI.downloadFileBlob = function (url) {
+    return new Promise((resolve, reject) => {
+        let xhr = new XMLHttpRequest();
 
-    xhr.onload = function () {
-        if (xhr.readyState == 4) {
-            if (xhr.status == 200) {
-                done(xhr.response);
+        xhr.onload = function () {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    resolve(xhr.response);
+                } else {
+                    console.error(xhr.statusText);
+                }
             } else {
-                console.error(xhr.statusText);
+                console.log(err);
+                reject(false);
             }
-        } else {
-            console.log(err);
-            done(false);
-        }
-    };
+        };
 
-    xhr.open("GET", url, true);
-    xhr.responseType = 'arraybuffer';
-    xhr.send(null);
+        xhr.open("GET", url, true);
+        xhr.responseType = 'blob';
+        xhr.send(null);
+    });
 };
 
-window.WAPI.downloadFileAndDecrypt = function ({ url, type, mediaKey, mimetype }, callbackFunction) {
-    window.WAPI.downloadFileBuffer(url, async function(result) {
-        let a = await Store.CryptoLib.decryptE2EMedia(type || "image", result, mediaKey, mimetype);
+window.WAPI.downloadFileBuffer = function (url) {
+    return new Promise((resolve, reject) => {
+        let xhr = new XMLHttpRequest();
+
+        xhr.onload = function () {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    resolve(xhr.response);
+                } else {
+                    console.error(xhr.statusText);
+                }
+            } else {
+                console.log(err);
+                reject(false);
+            }
+        };
+
+        xhr.open("GET", url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.send(null);
+    });
+};
+
+window.WAPI.downloadFileBytes = function (url) {
+    return new Promise((resolve, reject) => {
+        let xhr = new XMLHttpRequest();
+
+        xhr.onload = function () {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    var bytes = new Uint8Array(this.response);
+
+                    for (var i = 0, len = bytes.length; i < len; ++i) {
+                        bytes[i] = this.response[i];
+                    }
+                    resolve(bytes);
+                } else {
+                    console.error(xhr.statusText);
+                }
+            } else {
+                console.log(err);
+                reject(false);
+            }
+        };
+
+        xhr.open("GET", url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.send(null);
+    });
+};
+
+window.WAPI.downloadFileAndDecrypt = async function ({ url, type, mediaKey, mimetype }) {
+    var result = await window.WAPI.downloadFileBuffer(url);
+    let a = await Store.CryptoLib.decryptE2EMedia(type || "image", result, mediaKey, mimetype);
+    return new Promise(resolve => {
         const reader = new FileReader();
 
         reader.addEventListener('loadend', (e) => {
-            callbackFunction(e.target);
+            resolve(e.target);
         });
 
         reader.readAsDataURL(a._blob);
@@ -1117,17 +1172,24 @@ window.WAPI.fileToBase64 = (file) => new Promise((resolve, reject) => {
 window.WAPI.encryptAndUploadFile = async function ({ type, data }) {
     let filehash = await window.getFileHash(data);
     let mediaKey = await window.generateMediaKey();
-    let encrypted = await Store.CryptoLib.encryptE2EMedia(type, {
-        _blob: data,
-        retain: function() {},
-        autorelease: function() {}
-    }, mediaKey);
-    let uploadUrl = await Store.MediaUpload.requestEncryptedMediaUpload(type, encrypted.hash);
-    let uploadResponse = await uploadEncryptedMediaFile({url: uploadUrl.data, hash: encrypted.hash, data: encrypted.ciphertext._blob});
+    let controller = new AbortController();
+    let signal = controller.signal;
+
+    let encrypted = await Store.UploadUtils.encryptAndUpload({
+        blob: data,
+        type,
+        signal,
+        mediaKey
+    });
     return {
-        clientUrl: uploadResponse.url, mediaKey, filehash, uploadhash: encrypted.hash
+        clientUrl: encrypted.url,
+        mediaKey: encrypted.mediaKey,
+        mediaKeyTimestamp: encrypted.mediaKeyTimestamp,
+        filehash,
+        uploadhash: encrypted.encFilehash,
+        directPath: encrypted.directPath,
     };
-}
+};
 
 window.WAPI.getBatteryLevel = function (done) {
     if (window.Store.Conn.plugged) {
@@ -1348,25 +1410,8 @@ window.WAPI.sendImage2 = function ({imgBase64, chatid, filename, caption, quoted
 
 window.WAPI.sendSticker = function ({sticker, chatid, quotedMsgId}, done) {
     var idUser = new window.Store.UserConstructor(chatid, { intentionallyUsePrivateConstructor: true });
-    // create new chat
     return Store.Chat.find(idUser).then(async (chat) => {
-        // Since Whatsapp Web doesn't really support sending custom stickers, we have to trick it by using one 
-        // of the built-in sticker objects and changing some of the properties before we send it.
-        let prIdx = Store.StickerPack.pageWithIndex(0);
-        await Store.StickerPack.fetchAt(0);        
-        if (Store.StickerPack._models.length == 0) {
-            console.log('Could not fetch any sticker packs.');
-            if (done !== undefined) done(false);
-            return;
-        }
-        await Store.StickerPack._pageFetchPromises[prIdx];
-        await Store.StickerPack._models[0].stickers.fetch();
-        if (Store.StickerPack._models[0].stickers._models.length == 0) {
-            console.log('Could not fetch any stickers in the first pack.');
-            if (done !== undefined) done(false);
-            return;
-        }
-        let stick = Store.StickerPack._models[0].stickers._models[0];
+        let stick = new Store.Sticker.modelClass();
         stick.__x_clientUrl = sticker.url;
         stick.__x_filehash = sticker.filehash;
         stick.__x_id = sticker.filehash;
@@ -1374,10 +1419,17 @@ window.WAPI.sendSticker = function ({sticker, chatid, quotedMsgId}, done) {
         stick.__x_mediaKey = sticker.mediaKey;
         stick.__x_initialized = false;
         stick.__x_mediaData.mediaStage = "INIT";
-        stick.__x__mediaObject = undefined;
+        stick.mimetype = "image/webp";
+        stick.height = 512;
+        stick.width = 512;
+
         await stick.initialize();
         await stick.sendToChat(chat);
         if (done !== undefined) done(true);
+    })
+    .catch(e => {
+        console.log(`Could not send sticker: ${e}`);
+        if (done !== undefined) done(false);
     });
 }
 

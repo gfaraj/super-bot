@@ -263,15 +263,19 @@ export default class WhatsappClient {
                     });
                     image.url = encrypted.clientUrl;
                     image.mediaKey = encrypted.mediaKey;
+                    image.mediaKeyTimestamp = encrypted.mediaKeyTimestamp;
                     image.filehash = encrypted.filehash;
                     image.uploadhash = encrypted.uploadhash;
+                    image.directPath = encrypted.directPath;
                 }
                 WAPI.sendSticker({ sticker: image, chatid: to }, async (result) => {
                     console.log(`Send sticker to ${to} result = ${result}`);
                     if (result) {
-                        const timeout = ms => new Promise(res => setTimeout(res, ms));
-                        await timeout(2000);
-                        WAPI.sendMessage2(to, caption);
+                        if (caption && caption.length > 0) {
+                            const timeout = ms => new Promise(res => setTimeout(res, ms));
+                            await timeout(2000);
+                            WAPI.sendMessage2(to, caption);
+                        }
                     }
                     else {
                         WAPI.sendMessage2(to, 'Error: Sticker could not be sent.');
