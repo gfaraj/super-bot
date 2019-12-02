@@ -8,6 +8,18 @@ function parse(str) {
     return (pos === -1) ? [str, ''] : [str.substr(0, pos), str.substr(pos + 1)];
 };
 
+function join(str1, str2, delim) {
+    if (str1.length == 0) {
+        return str2;
+    }
+    else if (str2.length == 0) {
+        return str1;
+    }
+    else {
+        return str1 + delim + str2;
+    }
+}
+
 async function loadPlugins(bot, path) {
     console.log(`Loading plugins from path: ${path}`);
     for (const file of require('fs').readdirSync(path)) {
@@ -59,7 +71,7 @@ export default class SuperBot {
 
         this.command('all', (bot, message) => {
             bot.respond(Object.getOwnPropertyNames(this.commands).join(', '));
-        })
+        });
 
         if (this.options.pluginsPath) {
             await loadPlugins(this, require('path').join(__dirname, this.options.pluginsPath));
@@ -83,7 +95,7 @@ export default class SuperBot {
         this.rawMiddleware.use(handler);
     }
 
-    async receive(message) {
+    _handleMessage(message) {
         return new Promise(resolve => {
             this.middleware.go(this, message, (b, message) => {
                 let parsedText = parse(message.text);
@@ -116,5 +128,28 @@ export default class SuperBot {
                 }
             });
         });
+    }
+
+    async receive(message) {
+        if (this.options.enablePipe) {
+            let pipeline = message.text.split(` ${this.options.pipeDelimeter || '|'} `);
+            if (pipeline.length > 1) {
+                message.text = pipeline[0];
+            }
+            for (let i = 0; i < pipeline.length; ++i) {
+                var result = await this._handleMessage(message);
+
+                if (i === pipeline.length - 1) {
+                    return result;
+                }
+                else {
+                    message.text = join(pipeline[i + 1], result.text || "", " ");
+                    message.attachment = result.attachment;
+                }
+            }
+        }
+        else {
+            return await this._handleMessage(message);
+        }
     }
 }
