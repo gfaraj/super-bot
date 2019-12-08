@@ -392,39 +392,25 @@ export default class WhatsappClient {
         console.log(`Message from ${message.sender.name}: ${message.text}`);
         
         try {
-            let pipeline = message.text.split(" | ");
-            if (pipeline.length > 1) {
-                message.text = pipeline[0];
-            }
-
             let botMessage = await this.createBotMessage(message);
             if (botMessage) {
                 botMessage.callbackUrl = this.callbackUrl;
 
-                for (let i = 0; i < pipeline.length; ++i) {
-                    console.log(`Sending to bot: ${inspectMessage(botMessage)}`);
-                    let response = await axios.post(this.options.message_api_url, botMessage);
-                    
-                    if (response.status == 200) {
-                        console.log(`Received back: ${inspectMessage(response.data)}`);
-                        let data = response.data;
-                        if (!data.chat || !data.chat.id) {
-                            data.chat = { id: message.chat.id };
-                        }
+                console.log(`Sending to bot: ${inspectMessage(botMessage)}`);
+                let response = await axios.post(this.options.message_api_url, botMessage);
+                
+                if (response.status == 200) {
+                    console.log(`Received back: ${inspectMessage(response.data)}`);
+                    let data = response.data;
+                    if (!data.chat || !data.chat.id) {
+                        data.chat = { id: message.chat.id };
+                    }
 
-                        if (i === pipeline.length - 1) {
-                            await this.onBotMessageReceived(data);
-                        }
-                        else {
-                            botMessage.text = join(pipeline[i + 1], data.text || "", " ");
-                            botMessage.attachment = data.attachment;
-                        }
-                    }
-                    else {
-                        console.log(`Could not contact bot.`);
-                        this.sendMessage(message.chat.id, 'Error: could not contact bot.');
-                        break;
-                    }
+                    await this.onBotMessageReceived(data);
+                }
+                else {
+                    console.log(`Could not contact bot.`);
+                    this.sendMessage(message.chat.id, 'Error: could not contact bot.');
                 }
             }
         }

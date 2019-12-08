@@ -68,11 +68,6 @@ function handleQuotedImage(message) {
                         processMessage(m2);
                     });
                 }
-                else if (m.type == "sticker") {
-                    WAPI.getMessageById(message.id, (m2) => {
-                        processMessage(m2);
-                    });
-                }
                 else {
                     let data = await window.WAPI.downloadFileAndDecrypt({ url: m.clientUrl, type: m.type, mediaKey: m.mediaKey, mimetype: m.mimetype });
                     WAPI.getMessageById(message.id, (m2) => {
