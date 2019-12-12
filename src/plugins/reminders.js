@@ -92,7 +92,4 @@ export default function(bot) {
         }
         setTimeout(checkReminders, 60000);    
     });
-    if (now.getDate() === 12 && now.getHours() === 12 && now.getMinutes() === 0) {
-        cb();
-    }
 })();

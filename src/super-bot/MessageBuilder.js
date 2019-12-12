@@ -16,6 +16,11 @@ export default class MessageBuilder {
     return this;
   }
 
+  pipe(s) {
+    this.message.text = `${(this.message.text || '')} | ${s}`; 
+    return this;
+  }
+
   attachment(a) {
     this.message.attachment = a;
     return this;
