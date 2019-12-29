@@ -57,12 +57,11 @@ function () {
 };
 
 export default class SuperBot {
-    commands = {};
-    middleware = new Middleware();
-    rawMiddleware = new Middleware();
-
     constructor(options) {
-        this.options = options;        
+        this.options = options;
+        this.commands = {};
+        this.middleware = new Middleware();
+        this.rawMiddleware = new Middleware();
     }
 
     async start() {
