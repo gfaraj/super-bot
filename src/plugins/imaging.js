@@ -55,6 +55,76 @@ async function getAttachmentData(bot, attachment) {
     };
 }
 
+function loadCanvasImage(buffer) {
+    return new Promise((resolve, reject) => {
+        let canvasImage = new Image();
+        canvasImage.onload = () =>
+        {
+            resolve(canvasImage);
+        };
+        canvasImage.onerror = err => {
+            reject('Could not load image into canvas.');
+        };
+        canvasImage.src = buffer; 
+    });
+}
+
+let subjectImage = {};
+
+async function setSubject(bot, message) {
+    if (!message.attachment || !message.attachment.data) {
+        bot.error('No image provided.');
+        return;
+    }
+
+    subjectImage[message.chat.id] = message.attachment;
+
+    bot.respond("I've stored the subject image.");
+}
+
+async function combine(bot, message, position) {
+    if (!message.attachment || !message.attachment.data) {
+        bot.error('No image provided.');
+        return;
+    }
+    if (!subjectImage[message.chat.id]) {
+        bot.error('No subject image set - use "subject" command first.');
+        return;
+    }
+
+    let data = await getAttachmentData(bot, message.attachment);
+    if (!data) {
+        return;
+    }
+
+    let subjectData = await getAttachmentData(bot, subjectImage[message.chat.id]);
+    if (!subjectData) {
+        return;
+    }
+    
+    const canvas = createCanvas(data.metadata.width + subjectData.metadata.width, 
+        Math.max(data.metadata.height, subjectData.metadata.height));
+    const ctx = canvas.getContext('2d');
+    const image = await loadCanvasImage(data.buffer);
+    const subject = await loadCanvasImage(subjectData.buffer);
+    
+    ctx.drawImage(subject, 
+        0, canvas.height / 2 - subject.height / 2);
+
+    ctx.drawImage(image,  
+        canvas.width - image.width, 
+        canvas.height / 2 - image.height / 2);
+
+    let mimetype = "image/png";
+    var imageData = await convertImageBufferBack(canvas.toBuffer(), mimetype);
+
+    bot.respond({ attachment: {
+        data: `data:${mimetype};base64,${imageData.toString('base64')}`,
+        mimetype: mimetype,
+        type: "image"
+    }});        
+}
+
 async function addText(bot, message, position) {
     if (!message.attachment || !message.attachment.data) {
         bot.error('No image provided.');
@@ -70,7 +140,7 @@ async function addText(bot, message, position) {
         return;
     }
 
-    let isUpPosition = position !== "down";
+    let isUpPosition = position !== "d";
 
     const canvas = createCanvas(data.metadata.width, data.metadata.height);
     const ctx = canvas.getContext('2d');
@@ -212,9 +282,9 @@ async function addPadding(bot, message, direction) {
 }
 
 export default function(bot) {
-    bot.command('meme', async (bot, message) => await addText(bot, message, "up"));
-    bot.command('memeu', async (bot, message) => await addText(bot, message, "up"));
-    bot.command('memed', async (bot, message) => await addText(bot, message, "down"));
+    bot.command('meme', async (bot, message) => await addText(bot, message, "u"));
+    bot.command('memeu', async (bot, message) => await addText(bot, message, "u"));
+    bot.command('memed', async (bot, message) => await addText(bot, message, "d"));
     bot.command('pad', async (bot, message) => {
         let param = message.text || '';
         bot.pass(bot.copy(message).text(`padh ${param}`).pipe(`padv ${param}`));
@@ -231,4 +301,6 @@ export default function(bot) {
     bot.command('cropd', async (bot, message) => await crop(bot, message, "d"));
     bot.command('cropv', async (bot, message) => await crop(bot, message, "v"));
     bot.command('croph', async (bot, message) => await crop(bot, message, "h"));
+    bot.command('subject', async (bot, message) => await setSubject(bot, message));
+    bot.command('combine', async (bot, message) => await combine(bot, message, "r"));
 }

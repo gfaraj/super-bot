@@ -93,7 +93,7 @@ async function removeImageBackground(image) {
         timeout: 0
     });
 
-    await page.waitFor('button.btn-primary.btn-lg', {timeout: 10000});
+    await page.waitFor('button.btn-primary.btn-lg', {timeout: 8000});
 
     let imageFileName = await saveImageToFile(image);
 

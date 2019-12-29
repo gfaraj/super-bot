@@ -96,7 +96,7 @@ export default class SuperBot {
 
     _handleMessage(message) {
         return new Promise(resolve => {
-            this.middleware.go(this, message, (b, message) => {
+            this.middleware.go(new SuperBotProxy(this, message, resolve), message, (b, message) => {
                 let parsedText = parse(message.text);
                 let bot = new SuperBotProxy(this, message, resolve);
             
