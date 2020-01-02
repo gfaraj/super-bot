@@ -1,23 +1,48 @@
 const Botkit = require('botkit');
 const config = require('config');
 const axios = require('axios');
+const fs = require("fs");
+const stream = require("stream");
 
 require('dotenv').config();
 
-var controller = Botkit.slackbot({
+const controller = Botkit.slackbot({
     debug: false,
     clientSigningSecret: process.env.clientSigningSecret
 });
-controller.spawn({
+const bot = controller.spawn({
     token: process.env.botToken
-})
-.startRTM(function (err) {
-    if (err) {
-        throw new Error(err);
-    }
+});
+
+function startRTM() {
+    console.log(`Starting RTM connection...`);
+
+    bot.startRTM(function (err) {
+        if (err) {
+            console.log(`Failed to start RTM, error = ${err}`);
+            console.log(`Retrying in 6 seconds...`);
+            setTimeout(startRTM, 6000);
+        }
+        else {
+            console.log(`RTM connection started.`);
+        }
+    })
+}
+startRTM();
+
+controller.on('rtm_close', () => {
+    startRTM();
+});
+
+const slackRequestAdapter = axios.create({
+   headers: {
+       Authorization: `Bearer ${process.env.botToken}`
+   }
 });
 
 const options = config.get('SlackClient');
+
+const callbackUrl = 'http://localhost:3002/message'
 
 const timeout = ms => new Promise(res => setTimeout(res, ms));
 
@@ -38,8 +63,29 @@ function join(str1, str2, delim) {
     }
 }
 
+function inspectMessage(msg) {
+    return JSON.stringify(msg, function (key, value) {
+        if (key === 'data' && typeof value === 'string' && value.length > 50) {
+            return value.substring(0, 50) + '[...]';
+        }
+        return value;
+    });
+}
+
 function qualifyText(message, text) {
     return text.replace('$user', message.sender.id).replace('$quoteUser', message.quotedMsg && message.quotedMsg.senderId);
+}
+
+async function slackFileToAttachment(file) {
+    let response = await slackRequestAdapter.get(file.url_private_download, {
+        responseType: 'arraybuffer'
+    });
+    let data = Buffer.from(response.data, 'binary').toString('base64');
+    return {
+        data: `data:${file.mimetype};base64,${data}`,
+        mimeType: file.mimetype,
+        fileType: file.filetype
+    }
 }
 
 async function createBotMessage(message) {
@@ -56,47 +102,20 @@ async function createBotMessage(message) {
     if (!hasTrigger) {
         isDirected = first.substr(-1) == ":" && options.aliases.includes(first.substr(0, first.length - 1));
         if (!isDirected) {
-            return;
+            return null;
         }
     }
 
-    /*if (first == "!moment" || first == "!screenshot") {
-        if (first === "!moment" && rest.length == 0) {
-            this.sendMessage(message.chat.id, 'Specify a name for the recording.');
-            return;
-        }
-        await this.page.evaluate(async (chatId) => {
-            let chat = Store.Chat.get(chatId);
-            await Store.UiController.openChatBottom(chat);
-        }, message.chat.id);
-        await timeout(2000);
-        await this.sendScreenshot(message.chat.id, first === "!moment" ? `!record ${rest}` : undefined);
-        if (message.text == "!moment") {
-            await timeout(2000);
-            await this.sendMessage(message.chat.id, 'Moment recorded!');
-        }
-        return;
-    }*/
-
-    if (message.type == "image") {
-        attachment = { data : message.body, mimeType : message.mimeType, type : message.type };
+    if (message.files && message.files.length > 0) {
+        attachment = await slackFileToAttachment(message.files[0]);
     }
-    else if (message.quotedMsg) {
-        if (message.quotedMsg.type == "chat") {
-            rest = join(rest, message.quotedMsg.body, ' ');
-        }
-        else if (message.quotedMsg.caption) {
-            rest = join(rest, message.quotedMsg.caption, ' ');
-        }
-
-        if (message.quotedMsg.type == "image" || message.quotedMsg.type == "sticker") {
-            attachment = { data : message.quotedMsg.body, mimeType : message.quotedMsg.mimeType, type : message.quotedMsg.type };
-            if (message.quotedMsg.type == "sticker") {
-                attachment.url = message.quotedMsg.url;
-                attachment.mediaKey = message.quotedMsg.mediaKey;
-                attachment.filehash = message.quotedMsg.filehash;
-                attachment.uploadhash = message.quotedMsg.uploadhash;
-            }
+    else if (message.attachments && message.attachments.length > 0) {
+        //TODO: handle quoted messages
+    }
+    else if (message.parent) {
+        rest = join(rest, message.parent.text, ' ');
+        if (message.parent.files && message.parent.files.length > 0) {
+            attachment = await slackFileToAttachment(message.parent.files[0]);
         }
     }
 
@@ -105,82 +124,213 @@ async function createBotMessage(message) {
             return { text : join(first.substr(1), rest, ' '), sender, chat, attachment };
         }
         else if (isDirected) {
-            return { text : join('natural', rest, ' '), sender, chat };
+            return { text : join('natural', rest, ' '), sender, chat, attachment };
         }
     }
 
     return null;
 }
 
-async function onMessageReceived(bot, message) {
-    console.log(`Message from ${message.sender.id}: ${message.text}`);
-    
-    let botMessage = await createBotMessage(message);
-    if (botMessage) {
-        console.log(`Sending to bot: ${require('util').inspect(botMessage, {depth:null})}`);
-        axios.post(options.message_api_url, botMessage)
-        .then(async response => {
-            if (response.status == 200) {
-                console.log(`Received back: ${require('util').inspect(response.data, {depth:null})}`);
-                let data = response.data;
-                let text = data.text;                    
-                if (data.error) {
-                    text = "Error: " + text;
-                }                    
-                if (data.attachment) {                        
-                    if (data.addressee) {
-                        text = `${data.addressee}: ` + text + '☝☝';
-                    }
-                    /*await sendImage(message.chat.id, 
-                        data.attachment,
-                        text);*/
-                }
-                else {
-                    if (data.addressee) {
-                        text = `${data.addressee}: ` + text;
-                    }
-                    //await sendMessage(message.chat.id, text);
-                    bot.reply(message.originalMessage, text);
-                }
-            }
-        })
-        .catch(error => {
-            console.log(`Error when contacting bot: ${error}`);
-        });
+async function sendTextMessage(channel, text, source) {
+    let message = {
+        channel,
+        text,
+    };
+
+    if (source && source.thread_ts) {
+        bot.replyInThread(source.originalMessage, message);
+    }
+    else {
+        bot.say(message);
     }
 }
 
-controller.on(['direct_message', 'ambient'], function (bot, message) {
-    console.log(`Received: ${require('util').inspect(message, {depth:null})}`);
-    onMessageReceived(bot, {
-        originalMessage : message,
-        sender : {
-            id : message.user,
-            userId : message.user,
-            //name : message.sender.formattedName,
-            //shortName: message.sender.shortName,
-            isMe : true
-        },
-        chat : {
-            id : message.channel,
-            chatId : message.channel
-        },
-        type : message.type,
-        text : message.text
-        //mimeType : message.mimeType,
-        //body : message.body,
-        //text : message.type === 'chat' ? message.body : message.caption,
-        //isGroupMsg : message.isGroupMsg,
-        /*quotedMsg : {
-            caption : message.quotedMsgObj && message.quotedMsgObj.caption,
-            body : message.quotedMsgObj && message.quotedMsgObj.body,
-            type : message.quotedMsgObj && message.quotedMsgObj.type,
-            mimeType : message.quotedMsgObj && message.quotedMsgObj.mimetype,
-            mediaKey : message.quotedMsgObj && message.quotedMsgObj.mediaKey,
-            url : message.quotedMsgObj && message.quotedMsgObj.clientUrl,
-            filehash : message.quotedMsgObj && message.quotedMsgObj.filehash,
-            uploadhash : message.quotedMsgObj && message.quotedMsgObj.uploadhash,
-            senderId : message.quotedMsgObj && message.quotedMsgObj.sender.id._serialized
-        }*/
+let uniqueFileId = 0;
+
+async function saveFileToDisk(file) {
+    return new Promise((resolve, reject) => {
+        let data = file.data.split(',')[1];
+        let fileName = require("path").join(process.cwd(), `./temp/slack-work-${uniqueFileId++}.${file.fileType}`);
+        if (uniqueFileId > 10000) {
+            uniqueFileId = 0;
+        }
+        require("fs").writeFile(fileName, data, 'base64', function(err) {
+            if (err) {
+                reject(err);
+            }
+            else {
+                resolve(fileName);
+            }
+          });
     });
+}
+
+async function uploadFile(file) {
+    let fileName = await saveFileToDisk(file);
+
+    return new Promise((resolve, reject) => {
+        bot.api.files.upload({
+            token: process.env.botToken,
+            filename: `file.${file.fileType || 'png'}`,
+            filetype: "auto",
+            file: fs.createReadStream(fileName)
+        }, (err, response) => {
+            require("fs").unlink(fileName, (err) => {});
+            if (err) {
+                reject(err);
+            }
+            else {
+                resolve(response.file);
+            }
+        });
+    });
+}
+
+async function uploadFileAndPost(channel, file, text, source) {
+    let fileName = await saveFileToDisk(file);
+
+    return new Promise((resolve, reject) => {
+        let options = {
+            token: process.env.botToken,
+            filename: `file.${file.fileType || 'png'}`,
+            filetype: "auto",
+            channels: channel,            
+            initial_comment: text,
+            file: fs.createReadStream(fileName)
+        };
+        if (source && source.thread_ts) {
+            options.thread_ts = source.thread_ts;
+        }
+        
+        bot.api.files.upload(options, (err, response) => {
+            require("fs").unlink(fileName, (err) => {});
+            if (err) {
+                reject(err);
+            }
+            else {
+                resolve(response.file);
+            }
+        });
+    });
+}
+
+
+
+async function sendFile(channel, file, text, source) {
+    //let fileSpec = await uploadFile(file);
+
+    await uploadFileAndPost(channel, file, text, source);
+    /*bot.say({
+        channel,
+        text,
+        attachments: [
+            {
+                contentType: fileSpec.mimetype,
+                contentUrl: fileSpec.url_private_download,
+                name: `file.${fileSpec.filetype}`
+            }
+        ]
+    });*/
+}
+
+function retrieveParentMessage(message) {
+    return new Promise((resolve, reject) => {
+        bot.api.conversations.history({
+            token: process.env.userToken,
+            channel: message.channel,
+            latest: message.thread_ts,
+            limit: 1,
+            inclusive: true
+        }, (err, response) => {
+            if (err) {
+                console.log(err);
+                resolve(null);
+            }
+            else {
+                resolve(response.messages[0]);
+            }
+        });
+    });
+}
+
+async function onBotMessageReceived(message, source) {
+    let text = message.text || '';
+    if (message.error) {
+        text = "Error: " + text;
+    }                    
+    if (message.attachment) {                        
+        if (message.addressee) {
+            text = `${message.addressee}: ` + text + '☝☝';
+        }
+        await sendFile(message.chat.id, message.attachment, text, source);
+    }
+    else {
+        if (message.addressee) {
+            text = `${message.addressee}: ` + text;
+        }
+        await sendTextMessage(message.chat.id, text, source);
+    }
+}
+
+async function onMessageReceived(bot, message) {
+    console.log(`Message from ${message.sender.id}: ${message.text}`);
+    
+    try {
+        let botMessage = await createBotMessage(message);
+        if (botMessage) {
+            botMessage.callbackUrl = callbackUrl;
+
+            console.log(`Sending to bot: ${inspectMessage(botMessage)}`);
+            let response = await axios.post(options.message_api_url, botMessage);
+            
+            if (response.status == 200) {
+                console.log(`Received back: ${inspectMessage(response.data)}`);
+                let data = response.data;
+                if (!data.chat || !data.chat.id) {
+                    data.chat = { id: message.chat.id };
+                }
+
+                await onBotMessageReceived(data, message);
+            }
+            else {
+                console.log(`Could not contact bot.`);
+                await sendTextMessage(message.chat.id, 'Error: could not contact bot.', message);
+            }
+        }
+    }
+    catch(error) {
+        console.log(`Error when contacting bot: ${error}`, error.stack);
+        await sendTextMessage(message.chat.id, 'Error: could not contact bot.', message);
+    }
+}
+
+controller.on(['direct_message', 'ambient'], async function (bot, message) {
+    console.log(`Received: ${inspectMessage(message)}`);
+    
+    try {
+        await onMessageReceived(bot, {
+            originalMessage: message,
+            sender : {
+                id: message.user,
+                userId: message.user,
+                //name : message.sender.formattedName,
+                //shortName: message.sender.shortName,
+                isMe: true
+            },
+            chat: {
+                id: message.channel,
+                chatId: message.channel
+            },
+            type: message.type,
+            text: message.text,
+            thread_ts: message.thread_ts,
+            attachments: message.attachments,
+            files: message.files,
+            parent: message.thread_ts && message.thread_ts != message.ts ? await retrieveParentMessage(message) : undefined
+        });
+    }
+    catch(error) {
+        console.log(`Error when parsing slack message: ${error}`, error.stack);
+        await sendTextMessage(message.channel, 'Error: could not parse Slack message.', message);
+    }
 });
