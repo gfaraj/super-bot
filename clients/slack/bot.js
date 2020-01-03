@@ -3,8 +3,11 @@ const config = require('config');
 const axios = require('axios');
 const fs = require("fs");
 const mime = require('mime-types')
+const express = require('express');
 
 require('dotenv').config();
+
+const options = config.get('SlackClient');
 
 const controller = Botkit.slackbot({
     debug: false,
@@ -34,15 +37,39 @@ controller.on('rtm_close', () => {
     startRTM();
 });
 
+let callbackUrl = '';
+
+function startCallbackServer() {
+    const route = '/message';
+    const port = options.callback_url_port || 3001;
+    callbackUrl = `${options.callback_url_base}:${port}${route}`;
+
+    const server = express();
+    server.use(express.json({ limit: '20mb' }));
+
+    server.post(route, async (req, res) => {
+        try {
+            console.log(`Bot Sent: ${inspectMessage(req.body)}`);
+
+            await onBotMessageReceived(req.body);
+        }
+        catch (error) {
+            console.log(error);
+        }
+    });
+
+    server.listen(port, () => {
+        console.log(`Listening on ${callbackUrl}...`);
+    });
+}
+
+startCallbackServer();
+
 const slackRequestAdapter = axios.create({
    headers: {
        Authorization: `Bearer ${process.env.botToken}`
    }
 });
-
-const options = config.get('SlackClient');
-
-const callbackUrl = 'http://localhost:3002/message'
 
 const timeout = ms => new Promise(res => setTimeout(res, ms));
 
