@@ -2,7 +2,7 @@ const Botkit = require('botkit');
 const config = require('config');
 const axios = require('axios');
 const fs = require("fs");
-const stream = require("stream");
+const mime = require('mime-types')
 
 require('dotenv').config();
 
@@ -73,19 +73,46 @@ function inspectMessage(msg) {
 }
 
 function qualifyText(message, text) {
-    return text.replace('$user', message.sender.id).replace('$quoteUser', message.quotedMsg && message.quotedMsg.senderId);
+    return text
+        .replace('$user', message.sender.id)
+        .replace('$quoteUser', message.quotedMsg && message.quotedMsg.senderId)
+        .replace('$chatId', message.chat.id);
 }
 
-async function slackFileToAttachment(file) {
+async function slackFileToBotAttachment(file) {
     let response = await slackRequestAdapter.get(file.url_private_download, {
         responseType: 'arraybuffer'
     });
     let data = Buffer.from(response.data, 'binary').toString('base64');
     return {
         data: `data:${file.mimetype};base64,${data}`,
-        mimeType: file.mimetype,
-        fileType: file.filetype
+        mimetype: file.mimetype,
+        filetype: file.filetype
     }
+}
+
+async function slackAttachmentToBotAttachment(attachment) {
+    let mimetype = attachment.is_animated ? 'image/gif' : 'image/jpg';
+    let filetype = attachment.is_animated ? 'gif' : 'jpg';
+    let response = await axios.get(attachment.image_url, {
+        responseType: 'arraybuffer'
+    });
+    let data = Buffer.from(response.data, 'binary').toString('base64');
+    return {
+        data: `data:${mimetype};base64,${data}`,
+        mimetype,
+        filetype,
+        title: attachment.title
+    }
+}
+
+async function slackAttachmentsToBotAttachment(attachments) {
+    for (let attachment of attachments) {
+        if (attachment.image_url) {
+            return await slackAttachmentToBotAttachment(attachment);
+        }
+    }
+    return null;
 }
 
 async function createBotMessage(message) {
@@ -107,15 +134,18 @@ async function createBotMessage(message) {
     }
 
     if (message.files && message.files.length > 0) {
-        attachment = await slackFileToAttachment(message.files[0]);
+        attachment = await slackFileToBotAttachment(message.files[0]);
     }
     else if (message.attachments && message.attachments.length > 0) {
-        //TODO: handle quoted messages
+        attachment = await slackAttachmentsToBotAttachment(message.attachments);
     }
     else if (message.parent) {
         rest = join(rest, message.parent.text, ' ');
         if (message.parent.files && message.parent.files.length > 0) {
-            attachment = await slackFileToAttachment(message.parent.files[0]);
+            attachment = await slackFileToBotAttachment(message.parent.files[0]);
+        }
+        else if (message.parent.attachments) {
+            attachment = await slackAttachmentsToBotAttachment(message.parent.attachments);
         }
     }
 
@@ -150,7 +180,11 @@ let uniqueFileId = 0;
 async function saveFileToDisk(file) {
     return new Promise((resolve, reject) => {
         let data = file.data.split(',')[1];
-        let fileName = require("path").join(process.cwd(), `./temp/slack-work-${uniqueFileId++}.${file.fileType}`);
+        let fileName = require("path").join(
+            process.cwd(), 
+            `./temp/slack-work-${uniqueFileId++}.${file.filetype || mime.extension(file.mimetype)}`
+        );
+        
         if (uniqueFileId > 10000) {
             uniqueFileId = 0;
         }
@@ -165,43 +199,24 @@ async function saveFileToDisk(file) {
     });
 }
 
-async function uploadFile(file) {
-    let fileName = await saveFileToDisk(file);
-
-    return new Promise((resolve, reject) => {
-        bot.api.files.upload({
-            token: process.env.botToken,
-            filename: `file.${file.fileType || 'png'}`,
-            filetype: "auto",
-            file: fs.createReadStream(fileName)
-        }, (err, response) => {
-            require("fs").unlink(fileName, (err) => {});
-            if (err) {
-                reject(err);
-            }
-            else {
-                resolve(response.file);
-            }
-        });
-    });
-}
-
 async function uploadFileAndPost(channel, file, text, source) {
     let fileName = await saveFileToDisk(file);
 
     return new Promise((resolve, reject) => {
         let options = {
             token: process.env.botToken,
-            filename: `file.${file.fileType || 'png'}`,
+            filename: `file.${file.filetype || mime.extension(file.mimetype)}`,
             filetype: "auto",
-            channels: channel,            
-            initial_comment: text,
+            channels: channel,
             file: fs.createReadStream(fileName)
         };
+        if (text || file.title) {
+            options.initial_comment = join(text, file.title, ' ');
+        }
         if (source && source.thread_ts) {
             options.thread_ts = source.thread_ts;
         }
-        
+
         bot.api.files.upload(options, (err, response) => {
             require("fs").unlink(fileName, (err) => {});
             if (err) {
