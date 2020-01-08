@@ -12,6 +12,7 @@ before(function() {
 beforeEach(function() {
     this.builder = new MessageBuilder();
     this.builder.raw({
-        sender: { id: '123456', isMe: true }
+        sender: { id: '123456', isMe: true },
+        chat: { id: '654321' }
     });
 });
