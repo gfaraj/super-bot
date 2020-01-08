@@ -1,19 +1,19 @@
 var Datastore = require('nedb')
-  , db = new Datastore({ filename: './data/ignores.db', autoload: true });
+  , ignoresDb = new Datastore({ filename: './data/ignores.db', autoload: true });
 
-db.ensureIndex({ fieldName: 'senderId' }, function (err) {
+ignoresDb.ensureIndex({ fieldName: 'senderId' }, function (err) {
 });
 
-db.ensureIndex({ fieldName: 'chatId' }, function (err) {
+ignoresDb.ensureIndex({ fieldName: 'chatId' }, function (err) {
 });
 
 export default function(bot) {
     bot.use((bot, message, next) => {
-        if (message.sender.isMe) {
-            next();            
+        if (message.sender.isAdmin) {
+            next();
         }
         else {
-            db.findOne({ $or: [{ senderId: message.sender.id }, { chatId: message.chat.id }] }, function (err, doc) {
+            ignoresDb.findOne({ $or: [{ senderId: message.sender.id }, { chatId: message.chat.id }] }, function (err, doc) {
                 if (!doc) {
                     next();
                 }
@@ -22,7 +22,7 @@ export default function(bot) {
     });
 
     bot.command('ignore', (bot, message) => {
-        if (!message.sender.isMe) {
+        if (!message.sender.isAdmin) {
             bot.error('You don\'t have permission to ignore.');
             return;
         }
@@ -30,13 +30,13 @@ export default function(bot) {
             bot.error('Please specify the user id to ignore.');
             return;
         }
-        db.update({ senderId : message.text }, { senderId : message.text }, { upsert : true }, function () {
+        ignoresDb.update({ senderId : message.text }, { senderId : message.text }, { upsert : true }, function () {
             bot.respond(`I'm now ignoring "${message.text}".`);
         });
     });
 
     bot.command('unignore', (bot, message) => {
-        if (!message.sender.isMe) {
+        if (!message.sender.isAdmin) {
             bot.error('You don\'t have permission to unignore.');
             return;
         }
@@ -44,7 +44,7 @@ export default function(bot) {
             bot.error('Please specify the user id to unignore.');
             return;
         }
-        db.remove({ senderId : message.text }, { }, function (err, numRemoved) {
+        ignoresDb.remove({ senderId : message.text }, { }, function (err, numRemoved) {
             if (numRemoved > 0) {
                 bot.respond(`I'm now listening to "${message.text}".`);
             }
@@ -55,21 +55,21 @@ export default function(bot) {
     });
 
     bot.command('silence', (bot, message) => {
-        if (!message.sender.isMe) {
+        if (!message.sender.isAdmin) {
             bot.error('You don\'t have permission to silence.');
             return;
         }
-        db.update({ chatId : message.chat.id }, { chatId : message.chat.id }, { upsert : true }, function () {
+        ignoresDb.update({ chatId : message.chat.id }, { chatId : message.chat.id }, { upsert : true }, function () {
             bot.respond(`I'll be silent here now.`);
         });
     });
 
     bot.command('unsilence', (bot, message) => {
-        if (!message.sender.isMe) {
+        if (!message.sender.isAdmin) {
             bot.error('You don\'t have permission to silence.');
             return;
         }
-        db.remove({ chatId : message.chat.id }, { }, function (err, numRemoved) {
+        ignoresDb.remove({ chatId : message.chat.id }, { }, function (err, numRemoved) {
             if (numRemoved > 0) {
                 bot.respond(`I'm now listening here.`);
             }

@@ -97,32 +97,35 @@ async function removeImageBackground(image) {
 
     let imageFileName = await saveImageToFile(image);
 
-    const [fileChooser] = await Promise.all([
-        page.waitForFileChooser(),
-        page.click('button.btn-primary.btn-lg'),
-    ]);
-    await fileChooser.accept([imageFileName]);
-
-    await page.waitFor(3000);
-
-    const { captchas, solutions, solved, error } = await page.solveRecaptchas();
-
-    if (error && error.length > 0) {
-        return null;
-    }
-
-    await page.waitFor('div.image-result a.btn-primary', {timeout: 100000});
-
     try {
-        const imageUrl = await page.$eval('div.image-result a.btn-primary', a => a.getAttribute('href'));
-        return await getImageData(imageUrl);
+        const [fileChooser] = await Promise.all([
+            page.waitForFileChooser(),
+            page.click('button.btn-primary.btn-lg'),
+        ]);
+        await fileChooser.accept([imageFileName]);
+
+        await page.waitFor(3000);
+
+        const { captchas, solutions, solved, error } = await page.solveRecaptchas();
+
+        if (error && error.length > 0) {
+            throw "Could not solve captcha!";
+        }
+
+        await page.waitFor('div.image-result a.btn-primary', {timeout: 8000});
+
+        try {
+            const imageUrl = await page.$eval('div.image-result a.btn-primary', a => a.getAttribute('href'));
+            return await getImageData(imageUrl);
+        }
+        finally {
+            await page.click('a.btn.image-result--delete-btn');
+
+            await page.waitFor(3000);
+        }
     }
     finally {
         require("fs").unlink(imageFileName, (err) => {});
-
-        await page.click('a.btn.image-result--delete-btn');
-
-        await page.waitFor(3000);
 
         await page.close();
     }

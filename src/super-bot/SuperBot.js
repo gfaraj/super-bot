@@ -20,20 +20,42 @@ function join(str1, str2, delim) {
     }
 }
 
-async function loadPlugins(bot, path) {
-    console.log(`Loading plugins from path: ${path}`);
+async function loadPlugin(bot, path, file) {
+    try {
+        const pluginPath = require('path').join(path, file);
+        const mod = await import(pluginPath);
+        
+        console.log(`Initializing plugin: ${file}...`);
+        
+        mod.default(bot);
+        
+        console.log(`Done plugin: ${file}.`);
+    }
+    catch(err) {
+        console.error(err);
+    }
+}
+
+async function loadAllPlugins(bot, path) {
+    console.log(`Loading all plugins from path: ${path}`);
     for (const file of require('fs').readdirSync(path)) {
-        console.log(`Loading plugin: ${file}...`);
-        try {
-            var t = await import(require('path').join(path, file));
+        console.log(`Loading plugin: ${file}...`);        
+        await loadPlugin(bot, path, file);
+    }
+}
+
+async function loadPlugins(bot, path, plugins) {
+    console.log(`Loading plugins from path: ${path}`);
+    if (plugins) {
+        for (let plugin of plugins) {
+            if (plugin.disabled) continue;
             
-            console.log(`Initializing plugin: ${file}...`);
-            t.default(bot);
-            console.log(`Done plugin: ${file}...`);
+            console.log(`Loading plugin: ${plugin.name}.js...`);
+            await loadPlugin(bot, path, `${plugin.name}.js`);
         }
-        catch(err) {
-            console.error(err);
-        }
+    }
+    else {
+        await loadAllPlugins(bot, path);
     }
 }
 
@@ -73,7 +95,10 @@ export default class SuperBot {
         });
 
         if (this.options.pluginsPath) {
-            await loadPlugins(this, require('path').join(__dirname, this.options.pluginsPath));
+            await loadPlugins(
+                this, 
+                require('path').join(__dirname, this.options.pluginsPath), 
+                this.options.plugins);
         }
     }
 
