@@ -295,6 +295,23 @@ function retrieveParentMessage(message) {
     });
 }
 
+function retrieveUserName(user) {
+    return new Promise((resolve, reject) => {
+        bot.api.users.info({
+            token: process.env.userToken,
+            user
+        }, (err, response) => {
+            if (err) {
+                console.log(err);
+                resolve(null);
+            }
+            else {
+                resolve(response.user.name);
+            }
+        });
+    });
+}
+
 async function onBotMessageReceived(message, source) {
     let text = message.text || '';
     if (message.error) {
@@ -350,14 +367,15 @@ controller.on(['direct_message', 'ambient'], async function (bot, message) {
     console.log(`Received: ${inspectMessage(message)}`);
     
     try {
+        let userName = await retrieveUserName(message.user);
+
         await onMessageReceived(bot, {
             originalMessage: message,
             sender : {
                 id: message.user,
                 userId: message.user,
-                //name : message.sender.formattedName,
-                //shortName: message.sender.shortName,
-                isMe: true
+                name: userName || message.user,
+                isMe: false
             },
             chat: {
                 id: message.channel,

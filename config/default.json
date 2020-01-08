@@ -2,7 +2,27 @@
     "SuperBot" : {
         "pluginsPath": "../plugins",
         "enablePipe": true,
-        "pipeDelimeter": "|"
+        "pipeDelimeter": "|",
+        "plugins": [
+            { "name": "auth" },
+            { "name": "admin" },
+            { "name": "core" },
+            { "name": "pose" },
+            { "name": "echo" },
+            { "name": "evaluate" },
+            { "name": "factoid" },
+            { "name": "google" },
+            { "name": "imaging" },
+            { "name": "livescore" },
+            { "name": "natural" },
+            { "name": "poll" },
+            { "name": "record" },
+            { "name": "reminders" },
+            { "name": "sticker" },
+            { "name": "tell" },
+            { "name": "translate" },
+            { "name": "trivia" }
+        ]
     },
 
     "app": {

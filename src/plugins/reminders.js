@@ -1,6 +1,6 @@
 const axios = require('axios');
 const moment = require('moment');
-var Datastore = require('nedb')
+const Datastore = require('nedb')
   , db = new Datastore({ filename: './data/reminder.db', autoload: true });
 
 db.ensureIndex({ fieldName: 'chatId' }, function (err) {
@@ -82,7 +82,7 @@ export default function(bot) {
                 chat: { id: doc.chatId },
                 text: `Reminder: ${doc.description}`,
                 attachment: doc.attachment
-            }
+            };
             axios.post(doc.callbackUrl, message)
             .then(async response => {
                 if (response.status == 200) {
