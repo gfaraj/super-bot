@@ -149,16 +149,6 @@ This would send a message with the quoted image as a sticker.
 
 There are many other commands available like remindme, trivia, poll, factoid, and several imaging utilities.
 
-## Whatsapp Client
-
-The Whatsapp client works on top of the Whatsapp Web application. The API is not public, so any changes made by Whatsapp could disrupt it at any time. The client relays messages to the bot service and sends back the bot's replies. It picks up messages that start with the "!" character as commands for the bot. It also has a couple of client-specific commands like "!screenshot" which takes a screenshot of only the current chat and sends it there, and "!moment <name>" which takes the screenshot and also issues a "!record [name]" command to save the screenshot.
-
-The client supports sending custom stickers by using a very unreliable hack, since Whatsapp Web does not support this at all. It seems to be working correctly, but please enter an issue if you find a bug.
-
-## Slack Client
-
-The Slack client is built using [Botkit](https://www.npmjs.com/package/botkit) version 0.7.0. It's not using the latest version of Botkit (v4 at the time of this writing) because it doesn't support the RTM API, and this is needed if you can't expose a public endpoint for Slack to push new messages. Currently, the Slack client only supports text messages. Support for images and other more advanced features is under construction.
-
 ## Contribution
 
 Contribution of any kind is welcome! Please feel free to create your own plugins for the bot service, chat interfaces, features or bug fixes. Fork the repository, create your own branch and submit pull requests.
