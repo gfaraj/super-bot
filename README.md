@@ -2,18 +2,33 @@
 
 
 # super-bot
-A simple but extensible bot written in Node.js. Currently there is a Whatsapp and a Slack interface, but any messaging platform can be supported by creating a client for it (e.g FB Messenger, MS Teams, IRC).
+A simple but extensible bot written in Node.js. Currently there are Whatsapp, Slack, and Discord interfaces, but any messaging platform can be supported by creating a client for it (e.g FB Messenger, MS Teams, IRC).
 
-## Starting the bot
+## Installing the bot
 
-The root of this repository contains the bot service. You can run it with the following commands:
+Clone this repository:
+
+```
+git clone https://github.com/gfaraj/super-bot.git
+```
+
+and install its dependencies by running:
 
 ```
 npm install
+```
+
+Make sure you have npm and Node 10 or newer installed.
+
+## Starting the bot
+
+You can run the bot service with the following command:
+
+```
 npm run start
 ```
 
-The bot service starts a web server on port 3000 (which is configurable) and accepts POST requests on "http://localhost:3000/message" with the body being JSON data representing a message object. The bot then will run that message through any commands that are supported and sends back the response. This makes it really easy to have any number of interfaces tied to the same bot service. Currently there's no security to restrict access to this endpoint so be aware that anyone could post messages to the bot.
+The bot service starts a web server on port 3000 (which is configurable) and accepts POST requests on "/message" with the body being JSON data representing a message object. The bot then will run that message through any commands that are supported and sends back the response. This makes it really easy to have any number of interfaces tied to the same bot service. Currently there's no security to restrict access to this endpoint so be aware that anyone could post messages to the bot.
 
 The Whatsapp interface is located in ./clients/whatsapp and you can run that separately by setting that as the current directory and using the same run command.
 
@@ -21,6 +36,15 @@ The Whatsapp interface is located in ./clients/whatsapp and you can run that sep
 
 The bot uses a JSON configuration file located in the ./config folder. See the [config](https://docs.npmjs.com/cli/config) package documentation for more information. The Whatsapp client is also configured this way.
 
+## Clients
+
+The same bot service can be utilized through different clients. The clients are how users interface with the bot service. They handle all the platform-specific tasks like listening for new messages and transforming them into a standard message object for the bot service.
+
+| Repo | Description
+|--- |---
+| [super-bot-whatsapp](https://github.com/gfaraj/super-bot-whatsapp) | Chat interface for Whatsapp
+| [super-bot-slack](https://github.com/gfaraj/super-bot-slack) | Chat interface for Slack
+| [super-bot-discord](https://github.com/gfaraj/super-bot-slack) | Chat interface for Discord
 
 ## Plugins
 
@@ -120,6 +144,10 @@ This plugin provides utilities related to Whatsapp stickers. The "stickerize" co
 stickerize
 ```
 This would send a message with the quoted image as a sticker.
+
+### Other commands
+
+There are many other commands available like remindme, trivia, poll, factoid, and several imaging utilities.
 
 ## Whatsapp Client
 
