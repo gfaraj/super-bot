@@ -97,7 +97,7 @@ export default class SuperBot {
         if (this.options.pluginsPath) {
             await loadPlugins(
                 this, 
-                require('path').join(__dirname, this.options.pluginsPath), 
+                require('path').join(__dirname, '../../', this.options.pluginsPath), 
                 this.options.plugins);
         }
     }

@@ -1,6 +1,6 @@
 {
     "SuperBot" : {
-        "pluginsPath": "../plugins",
+        "pluginsPath": "./plugins",
         "enablePipe": true,
         "pipeDelimeter": "|",
         "plugins": [

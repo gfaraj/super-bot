@@ -1,0 +1,14 @@
+version: '3.7'
+
+services:
+  super-bot:
+    image: gfaraj/super-bot
+    build: .
+    environment:
+      NODE_ENV: production
+    volumes:
+      - type: bind
+        source: .
+        target: /usr/src/app
+    ports:
+      - "3000:3000"

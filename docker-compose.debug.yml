@@ -1,0 +1,16 @@
+version: '3.7'
+
+services:
+  super-bot:
+    image: super-bot
+    build: .
+    environment:
+      NODE_ENV: development
+    volumes:
+      - type: bind
+        source: .
+        target: /usr/src/app
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+    command: node --inspect=0.0.0.0:9229 .
