@@ -42,7 +42,7 @@ The same bot service can be utilized through different clients. The clients are 
 |--- |---
 | [super-bot-whatsapp](https://github.com/gfaraj/super-bot-whatsapp) | Chat interface for Whatsapp
 | [super-bot-slack](https://github.com/gfaraj/super-bot-slack) | Chat interface for Slack
-| [super-bot-discord](https://github.com/gfaraj/super-bot-slack) | Chat interface for Discord
+| [super-bot-discord](https://github.com/gfaraj/super-bot-discord) | Chat interface for Discord
 
 ## Plugins
 
