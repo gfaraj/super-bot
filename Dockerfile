@@ -1,4 +1,5 @@
 FROM node:12.14.1-alpine3.11
+
 ENV NODE_ENV production
 
 RUN apk add --no-cache \
@@ -15,8 +16,13 @@ RUN apk --no-cache add msttcorefonts-installer fontconfig && \
     fc-cache -f
 
 WORKDIR /usr/src/app
-COPY ["package.json", "package-lock.json*", "npm-shrinkwrap.json*", "start.js", "./"]
+
+COPY ["package.json", "package-lock.json*", "npm-shrinkwrap.json*", "./"]
+
 RUN npm install --production --silent && mv node_modules ../
-COPY ./src ./src
+
+COPY . .
+
 EXPOSE 3000
+
 CMD npm start

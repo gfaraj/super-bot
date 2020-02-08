@@ -1,5 +1,5 @@
 const sharp = require('sharp');
-const { Image, createCanvas } = require('canvas')
+const { Image, createCanvas } = require('canvas');
 
 async function getSupportedImageBuffer(image, mimetype) {
     if (mimetype === 'image/png') {

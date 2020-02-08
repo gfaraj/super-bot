@@ -1,0 +1,16 @@
+{
+    "verbose": true,
+    "ignore": [
+        "data/*", 
+        "temp/*",
+        "node_modules/**/node_modules"
+    ],
+    "execMap": {
+        "js": "node --harmony"
+    },
+    "watch": [
+        "plugins/",
+        "src/",
+        "config/"
+    ]
+  }

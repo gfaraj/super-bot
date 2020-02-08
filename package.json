@@ -25,11 +25,13 @@
   },
   "devDependencies": {
     "mocha": "^6.2.2",
+    "nodemon": "^2.0.2",
     "should": "^13.2.3"
   },
   "scripts": {
     "start": "node .",
     "start:dev": "node .",
+    "start:mon": "nodemon -L .",
     "test": "mocha --recursive --require esm --exit"
   },
   "repository": {
