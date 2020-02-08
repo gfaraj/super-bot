@@ -4,7 +4,11 @@
 # super-bot
 A simple but extensible bot written in Node.js. Currently there are Whatsapp, Slack, and Discord interfaces, but any messaging platform can be supported by creating a client for it (e.g FB Messenger, MS Teams, IRC).
 
-## Installing the bot
+## Docker
+
+Running the bot service as a docker container is not yet supported due to incompatibility issues with the database provider. The bot clients are all dockerized, though, and [here is a handy docker-compose file](https://gist.github.com/gfaraj/e9459a5d90cdcb923655f70ae456b96a) to quickly start all of them.
+
+## Installing from source
 
 Clone this repository:
 
