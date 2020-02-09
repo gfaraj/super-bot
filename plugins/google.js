@@ -55,9 +55,15 @@ async function extractGoogleImageResultFinal(body) {
         }
     });
 
-    return new Promise(resolve => {
-        resolve(results);
-    });
+    if (!results) {
+        $('div[rfpps] img[data-atf="true"]').each(function(i, elem) {
+            if (!results) {
+                results = $(this).attr('src');
+            }
+        }); 
+    }
+
+    return Promise.resolve(results);
 
     /*if (results)
         return await getImageData(results);
