@@ -3,10 +3,10 @@ import MessageBuilder from './MessageBuilder'
 
 export default class SuperBotProxy {
 
-    constructor(bot, message, resolve) {
+    constructor(bot, message, respondHandler) {
         this.bot = bot;
         this.message = message;
-        this.resolve = resolve;
+        this.respondHandler = respondHandler;
     }
 
     _sanitize(m) {
@@ -27,8 +27,8 @@ export default class SuperBotProxy {
     }
 
     respond(m) {
-        if (this.resolve) {
-            this.resolve(this._sanitize(m));
+        if (this.respondHandler) {
+            this.respondHandler(this._sanitize(m));
         }
     }
 
