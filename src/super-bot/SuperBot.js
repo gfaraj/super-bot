@@ -119,11 +119,35 @@ export default class SuperBot {
         this.rawMiddleware.use(handler);
     }
 
+    _normalizeIncoming(message) {
+        if (message.attachment && (!message.attachments || message.attachments.length == 0)) {
+            message.attachments = [message.attachment];
+        }
+        else if (!message.attachment && message.attachments && message.attachments.length > 0) {
+            message.attachment = message.attachments[0];
+        }
+    }
+
+    _normalizeOutgoing(message) {
+        if (message.attachment) {
+            if (!message.attachments || message.attachments.length == 0) {
+                message.attachments = [message.attachment];
+            }
+            message.attachment = undefined;
+        }
+    }
+
     _handleMessage(message) {
+        this._normalizeIncoming(message);
+
         return new Promise(resolve => {
-            this.middleware.go(new SuperBotProxy(this, message, resolve), message, (b, message) => {
+            const respondHandler = (message) => {
+                this._normalizeOutgoing(message);
+                resolve(message);
+            };
+            this.middleware.go(new SuperBotProxy(this, message, respondHandler), message, (b, message) => {
                 let parsedText = parse(message.text);
-                let bot = new SuperBotProxy(this, message, resolve);
+                let bot = new SuperBotProxy(this, message, respondHandler);
             
                 let first = parsedText[0].toLowerCase();
                 if (first.length === 0) {
@@ -156,12 +180,12 @@ export default class SuperBot {
 
     async receive(message) {
         if (this.options.enablePipe) {
-            let pipeline = message.text.split(` ${this.options.pipeDelimeter || '|'} `);
+            const pipeline = message.text.split(` ${this.options.pipeDelimeter || '|'} `);
             if (pipeline.length > 1) {
                 message.text = pipeline[0];
             }
             for (let i = 0; i < pipeline.length; ++i) {
-                var result = await this._handleMessage(message);
+                const result = await this._handleMessage(message);
 
                 if (i === pipeline.length - 1) {
                     return result;
@@ -169,6 +193,8 @@ export default class SuperBot {
                 else {
                     message.text = join(pipeline[i + 1], result.text || "", " ");
                     message.attachment = result.attachment;
+                    message.attachments = result.attachments;
+                    this._normalizeAttachments(message);
                 }
             }
         }
