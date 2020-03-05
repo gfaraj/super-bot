@@ -34,7 +34,7 @@ export default class SuperBotProxy {
 
     async receive(m) {
         if (this.bot) {
-            return await this.bot.receive(this._sanitize(m));
+            return await this.bot.receiveInternal(this._sanitize(m));
         }
     }
     async pass(m) {

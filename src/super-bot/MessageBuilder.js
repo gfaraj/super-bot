@@ -22,7 +22,12 @@ export default class MessageBuilder {
   }
 
   attachment(a) {
-    this.message.attachment = a;
+    return this.attachments([a]);
+  }
+
+  attachments(a) {
+    this.message.attachments = a;
+    this.message.attachment = a && a[0];
     return this;
   }
 

@@ -126,6 +126,7 @@ export default class SuperBot {
         else if (!message.attachment && message.attachments && message.attachments.length > 0) {
             message.attachment = message.attachments[0];
         }
+        return message;
     }
 
     _normalizeOutgoing(message) {
@@ -135,50 +136,56 @@ export default class SuperBot {
             }
             message.attachment = undefined;
         }
+        return message;
     }
 
     _handleMessage(message) {
         this._normalizeIncoming(message);
 
-        return new Promise(resolve => {
-            const respondHandler = (message) => {
-                this._normalizeOutgoing(message);
-                resolve(message);
-            };
-            this.middleware.go(new SuperBotProxy(this, message, respondHandler), message, (b, message) => {
-                let parsedText = parse(message.text);
-                let bot = new SuperBotProxy(this, message, respondHandler);
-            
-                let first = parsedText[0].toLowerCase();
-                if (first.length === 0) {
-                    bot.error('I don\'t understand that.');
-                    return;
-                }
-
-                try {
-                    if (this.commands[first]) {
-                        let command = first;
-                        message.command = command;
-                        message.fullText = message.text;
-                        message.text = parsedText[1];
-
-                        this.commands[first](bot, message);
+        return new Promise((resolve, reject) => {
+            try {
+                const respondHandler = (message) => {
+                    resolve(message);
+                };
+                this.middleware.go(new SuperBotProxy(this, message, respondHandler), message, (b, message) => {
+                    let parsedText = parse(message.text);
+                    let bot = new SuperBotProxy(this, message, respondHandler);
+                
+                    let first = parsedText[0].toLowerCase();
+                    if (first.length === 0) {
+                        bot.error('I don\'t understand that.');
+                        return;
                     }
-                    else {
-                        this.rawMiddleware.go(bot, message, (b, message) => {
-                            bot.error(`I don't recognize "${first}".`);
-                        });
+
+                    try {
+                        if (this.commands[first]) {
+                            let command = first;
+                            message.command = command;
+                            message.fullText = message.text;
+                            message.text = parsedText[1];
+
+                            this.commands[first](bot, message);
+                        }
+                        else {
+                            this.rawMiddleware.go(bot, message, (b, message) => {
+                                bot.error(`I don't recognize "${first}".`);
+                            });
+                        }
                     }
-                }
-                catch (err) {
-                    console.log(err);
-                    bot.error('Something went wrong.');
-                }
-            });
+                    catch (err) {
+                        console.log(err);
+                        reject('Something went wrong.');
+                    }
+                });
+            }
+            catch (err) {
+                console.log(err);
+                reject('Something went wrong.');
+            }
         });
     }
 
-    async receive(message) {
+    async receiveInternal(message) {
         if (this.options.enablePipe) {
             const pipeline = message.text.split(` ${this.options.pipeDelimeter || '|'} `);
             if (pipeline.length > 1) {
@@ -194,12 +201,16 @@ export default class SuperBot {
                     message.text = join(pipeline[i + 1], result.text || "", " ");
                     message.attachment = result.attachment;
                     message.attachments = result.attachments;
-                    this._normalizeAttachments(message);
                 }
             }
         }
         else {
             return await this._handleMessage(message);
         }
+    }
+
+    async receive(message) {
+        const response = await this.receiveInternal(message);
+        return this._normalizeOutgoing(response);
     }
 }

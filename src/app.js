@@ -1,5 +1,6 @@
 import express from 'express'
 import { SuperBot } from './super-bot'
+import MessageBuilder from './super-bot/MessageBuilder';
 
 function inspectMessage(msg) {
     return JSON.stringify(msg, function (key, value) {
@@ -22,10 +23,10 @@ async function main() {
     app.use(express.json({ limit: '20mb' }));
 
     app.post('/message', async (req, res) => {
-        try {
-            console.log(`Received: ${inspectMessage(req.body)}`);
+        console.log(`Received: ${inspectMessage(req.body)}`);
 
-            let message = await bot.receive(req.body);
+        try {
+            const message = await bot.receive(req.body);
 
             console.log(`Sending: ${inspectMessage(message)}`);
 
@@ -33,6 +34,10 @@ async function main() {
         }
         catch (error) {
             console.log(error);
+
+            const message = new MessageBuilder().error(error).build();
+            console.log(`Sending error: ${inspectMessage(message)}`);
+            res.send(message);
         }
     });
 
