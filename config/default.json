@@ -22,7 +22,8 @@
             { "name": "sticker" },
             { "name": "tell" },
             { "name": "translate" },
-            { "name": "trivia" }
+            { "name": "trivia" },
+            { "name": "code" }
         ]
     },
 
