@@ -69,6 +69,43 @@ function loadCanvasImage(buffer) {
     });
 }
 
+async function convertToPng(bot, message) {
+    if (!message.attachment || !message.attachment.data) {
+        bot.error('No image provided.');
+        return;
+    }
+
+    const dataSplit = message.attachment.data.split(',');
+    const mimetype  = dataSplit[0].match(/:(.*?);/)[1];
+    const data = dataSplit[1];
+    
+    let sharpData = sharp(Buffer.from(data, 'base64'));
+
+    const metadata = await sharpData.metadata();
+
+    const width = metadata.width;
+    const height = metadata.height;
+
+    sharpData = sharpData
+        .ensureAlpha()
+        .png();
+    
+    if (message.text.length > 0) {
+        const multiplier = parseInt(message.text);
+        sharpData = sharpData
+            .resize(multiplier * width, multiplier.height);
+    }
+
+    const resultBuffer = await sharpData.toBuffer();
+
+    bot.respond({ attachment: {
+        data: `data:${mimetype};base64,${resultBuffer.toString('base64')}`,
+        mimetype: 'image/png',
+        type: "image"
+    }});        
+}
+
+
 let subjectImage = {};
 
 async function setSubject(bot, message) {
@@ -303,4 +340,5 @@ export default function(bot) {
     bot.command('croph', async (bot, message) => await crop(bot, message, "h"));
     bot.command('subject', async (bot, message) => await setSubject(bot, message));
     bot.command('combine', async (bot, message) => await combine(bot, message, "r"));
+    bot.command('png', (bot, message) => convertToPng(bot, message));
 }
