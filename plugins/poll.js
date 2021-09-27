@@ -56,7 +56,7 @@ export default function(bot) {
                             bot.error("Could not create new poll!");
                         }
                         else {
-                            bot.respond(`Poll started: ${message.text}\n\nAdd choices using "choice" and vote using "vote". Close the poll using "close".\n\nFor example: "choice Burgers" or "vote 2".`);
+                            bot.respond(`Poll started: ${message.text}\n\nAdd choices using "choice" and vote using "vote". Close the poll using "pollclose".\n\nFor example: "choice Burgers" or "vote 2".`);
                         }
                     });
                 }

@@ -1,5 +1,6 @@
 const crawl_url = 'https://ideone.com';
 const puppeteer = require('puppeteer-extra');
+const path = require('path');
 
 const pluginStealth = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(pluginStealth());
@@ -41,7 +42,7 @@ async function runCode(language, codeText) {
     if (!browser) {
         browser = await puppeteer.launch({
             headless: true,
-            userDataDir: "./temp/code_user_data",
+            userDataDir: path.resolve("./temp/code_user_data"),
             args: DEFAULT_CHROMIUM_ARGS,
             ignoreHTTPSErrors: true,
             devtools: false,

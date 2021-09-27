@@ -63,6 +63,14 @@ async function extractGoogleImageResultFinal(body) {
         }); 
     }
 
+    if (!results) {
+        $('div[data-cid] img[data-atf="true"]').each(function(i, elem) {
+            if (!results) {
+                results = $(this).attr('src');
+            }
+        }); 
+    }
+
     return Promise.resolve(results);
 
     /*if (results)

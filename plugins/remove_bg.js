@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crawl_url = 'https://www.remove.bg/upload';
 const puppeteer = require('puppeteer-extra');
+const path = require('path');
 
 const pluginStealth = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(pluginStealth());
@@ -75,7 +76,7 @@ async function removeImageBackground(image) {
     if (!browser) {
         browser = await puppeteer.launch({
             headless: true,
-            userDataDir: "./temp/rb_user_data",
+            userDataDir: path.resolve("./temp/rb_user_data"),
             args: DEFAULT_CHROMIUM_ARGS,
             ignoreHTTPSErrors: true,
             devtools: false,
@@ -93,14 +94,14 @@ async function removeImageBackground(image) {
         timeout: 0
     });
 
-    await page.waitFor('button.btn-primary.btn-lg', {timeout: 8000});
+    await page.waitFor('button.btn-primary.btn-upload', {timeout: 8000});
 
     let imageFileName = await saveImageToFile(image);
 
     try {
         const [fileChooser] = await Promise.all([
             page.waitForFileChooser(),
-            page.click('button.btn-primary.btn-lg'),
+            page.click('button.btn-primary.btn-upload'),
         ]);
         await fileChooser.accept([imageFileName]);
 
@@ -112,10 +113,12 @@ async function removeImageBackground(image) {
             throw "Could not solve captcha!";
         }
 
-        await page.waitFor('div.image-result a.btn-primary', {timeout: 8000});
+        await page.waitFor(2000);
+
+        await page.waitFor('div.my-3 a.btn-primary', {timeout: 8000});
 
         try {
-            const imageUrl = await page.$eval('div.image-result a.btn-primary', a => a.getAttribute('href'));
+            const imageUrl = await page.$eval('div.my-3 a.btn-primary', a => a.getAttribute('href'));
             return await getImageData(imageUrl);
         }
         finally {
