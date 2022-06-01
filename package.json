@@ -21,7 +21,7 @@
     "puppeteer-extra-plugin-recaptcha": "^3.0.4",
     "puppeteer-extra-plugin-stealth": "^2.2.2",
     "safe-eval": "^0.4.1",
-    "sharp": "^0.23.1"
+    "sharp": "^0.30.5"
   },
   "devDependencies": {
     "mocha": "^6.2.2",
